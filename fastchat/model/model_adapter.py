@@ -5,8 +5,6 @@ import sys
 from typing import List, Optional
 import warnings
 
-from fastchat.modules.gptq import GptqConfig, load_gptq_quantized
-
 if sys.version_info >= (3, 9):
     from functools import cache
 else:
@@ -14,6 +12,7 @@ else:
 
 import psutil
 import torch
+
 from transformers import (
     AutoConfig,
     AutoModel,
@@ -25,6 +24,7 @@ from transformers import (
     T5Tokenizer,
 )
 
+from fastchat.modules.gptq import GptqConfig, load_gptq_quantized
 from fastchat.conversation import Conversation, get_conv_template
 from fastchat.model.compression import load_compress_model
 from fastchat.model.monkey_patch_non_inplace import (
@@ -42,17 +42,24 @@ class BaseAdapter:
         return True
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
+        revision = from_pretrained_kwargs.get("revision", "main")
         tokenizer = AutoTokenizer.from_pretrained(
-            model_path, use_fast=self.use_fast_tokenizer
+            model_path,
+            use_fast=self.use_fast_tokenizer,
+            revision=revision,
         )
         model = AutoModelForCausalLM.from_pretrained(
             model_path, low_cpu_mem_usage=True, **from_pretrained_kwargs
         )
         return model, tokenizer
 
-    def load_compress_model(self, model_path, device, torch_dtype):
+    def load_compress_model(self, model_path, device, torch_dtype, revision="main"):
         return load_compress_model(
-            model_path, device, torch_dtype, use_fast=self.use_fast_tokenizer
+            model_path,
+            device,
+            torch_dtype,
+            use_fast=self.use_fast_tokenizer,
+            revision=revision,
         )
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
@@ -112,6 +119,7 @@ def load_model(
     load_8bit: bool = False,
     cpu_offloading: bool = False,
     gptq_config: Optional[GptqConfig] = None,
+    revision: str = "main",
     debug: bool = False,
 ):
     """Load a model from Hugging Face."""
@@ -144,6 +152,15 @@ def load_model(
         kwargs = {"torch_dtype": torch.float16}
         # Avoid bugs in mps backend by not using in-place operations.
         replace_llama_attn_with_non_inplace_operations()
+    elif device == "xpu":
+        kwargs = {"torch_dtype": torch.bfloat16}
+        # Try to load ipex, while it looks unused, it links into torch for xpu support
+        try:
+            import intel_extension_for_pytorch as ipex
+        except ImportError:
+            warnings.warn(
+                "Intel Extension for PyTorch is not installed, but is required for xpu inference."
+            )
     else:
         raise ValueError(f"Invalid device: {device}")
 
@@ -166,7 +183,10 @@ def load_model(
             )
         else:
             return adapter.load_compress_model(
-                model_path=model_path, device=device, torch_dtype=kwargs["torch_dtype"]
+                model_path=model_path,
+                device=device,
+                torch_dtype=kwargs["torch_dtype"],
+                revision=revision,
             )
     elif gptq_config and gptq_config.wbits < 16:
         return load_gptq_quantized(
@@ -174,6 +194,7 @@ def load_model(
             gptq_config,
             device=device,
         )
+    kwargs["revision"] = revision
 
     # Load model
     adapter = get_model_adapter(model_path)
@@ -181,6 +202,11 @@ def load_model(
 
     if (device == "cuda" and num_gpus == 1 and not cpu_offloading) or device == "mps":
         model.to(device)
+
+    elif device == "xpu":
+        model.eval()
+        model = model.to("xpu")
+        model = torch.xpu.optimize(model, dtype=torch.bfloat16, inplace=True)
 
     if debug:
         print(model)
@@ -201,9 +227,15 @@ def add_model_args(parser):
         help="The path to the weights. This can be a local folder or a Hugging Face repo ID.",
     )
     parser.add_argument(
+        "--revision",
+        type=str,
+        default="main",
+        help="Hugging Face Hub model revision identifier",
+    )
+    parser.add_argument(
         "--device",
         type=str,
-        choices=["cpu", "cuda", "mps"],
+        choices=["cpu", "cuda", "mps", "xpu"],
         default="cuda",
         help="The device type",
     )
@@ -267,7 +299,10 @@ class VicunaAdapter(BaseAdapter):
         return "vicuna" in model_path
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
-        tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
+        revision = from_pretrained_kwargs.get("revision", "main")
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path, use_fast=False, revision=revision
+        )
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             low_cpu_mem_usage=True,
@@ -300,7 +335,10 @@ class T5Adapter(BaseAdapter):
         return "t5" in model_path
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
-        tokenizer = T5Tokenizer.from_pretrained(model_path, use_fast=False)
+        revision = from_pretrained_kwargs.get("revision", "main")
+        tokenizer = T5Tokenizer.from_pretrained(
+            model_path, use_fast=False, revision=revision
+        )
         model = AutoModelForSeq2SeqLM.from_pretrained(
             model_path, low_cpu_mem_usage=True, **from_pretrained_kwargs
         )
@@ -334,7 +372,10 @@ class ChatGLMAdapter(BaseAdapter):
         return "chatglm" in model_path
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        revision = from_pretrained_kwargs.get("revision", "main")
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path, trust_remote_code=True, revision=revision
+        )
         model = AutoModel.from_pretrained(
             model_path, trust_remote_code=True, **from_pretrained_kwargs
         )
@@ -350,7 +391,10 @@ class DollyV2Adapter(BaseAdapter):
         return "dolly-v2" in model_path
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
-        tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
+        revision = from_pretrained_kwargs.get("revision", "main")
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path, use_fast=True, revision=revision
+        )
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             low_cpu_mem_usage=True,
@@ -397,6 +441,7 @@ class MPTAdapter(BaseAdapter):
         return "mpt" in model_path
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
+        revision = from_pretrained_kwargs.get("revision", "main")
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             low_cpu_mem_usage=True,
@@ -405,7 +450,7 @@ class MPTAdapter(BaseAdapter):
             **from_pretrained_kwargs,
         )
         tokenizer = AutoTokenizer.from_pretrained(
-            model_path, trust_remote_code=True, use_fast=True
+            model_path, trust_remote_code=True, use_fast=True, revision=revision
         )
         return model, tokenizer
 
@@ -435,8 +480,9 @@ class RwkvAdapter(BaseAdapter):
         from fastchat.model.rwkv_model import RwkvModel
 
         model = RwkvModel(model_path)
+        revision = from_pretrained_kwargs.get("revision", "main")
         tokenizer = AutoTokenizer.from_pretrained(
-            "EleutherAI/pythia-160m", use_fast=True
+            "EleutherAI/pythia-160m", use_fast=True, revision=revision
         )
         return model, tokenizer
 
@@ -459,7 +505,8 @@ class OpenBuddyAdapter(BaseAdapter):
         model = LlamaForCausalLM.from_pretrained(
             model_path, low_cpu_mem_usage=True, **from_pretrained_kwargs
         )
-        tokenizer = LlamaTokenizer.from_pretrained(model_path)
+        revision = from_pretrained_kwargs.get("revision", "main")
+        tokenizer = LlamaTokenizer.from_pretrained(model_path, revision=revision)
         return model, tokenizer
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
@@ -547,7 +594,10 @@ class RedPajamaINCITEAdapter(BaseAdapter):
         return "redpajama-incite" in model_path.lower()
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
-        tokenizer = AutoTokenizer.from_pretrained(model_path)  # no use_fast=False
+        revision = from_pretrained_kwargs.get("revision", "main")
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path, revision=revision
+        )  # no use_fast=False
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             low_cpu_mem_usage=True,
@@ -567,6 +617,16 @@ class H2OGPTAdapter(BaseAdapter):
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("h2ogpt")
+
+
+class RobinAdapter(BaseAdapter):
+    """The model adapter for LMFlow/Full-Robin-7b-v2"""
+
+    def match(self,model_path:str):
+        return "Robin" in model_path
+
+    def get_default_conv_template(self,model_path:str) -> Conversation:
+        return get_conv_template("Robin")
 
 
 class SnoozyAdapter(BaseAdapter):
@@ -612,7 +672,10 @@ class GuanacoAdapter(BaseAdapter):
         return "guanaco" in model_path
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
-        tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
+        revision = from_pretrained_kwargs.get("revision", "main")
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path, use_fast=False, revision=revision
+        )
         model = AutoModelForCausalLM.from_pretrained(
             model_path, low_cpu_mem_usage=True, **from_pretrained_kwargs
         )
@@ -666,6 +729,7 @@ register_model_adapter(MPTAdapter)
 register_model_adapter(BiLLaAdapter)
 register_model_adapter(RedPajamaINCITEAdapter)
 register_model_adapter(H2OGPTAdapter)
+register_model_adapter(RobinAdapter)
 register_model_adapter(SnoozyAdapter)
 register_model_adapter(WizardLMAdapter)
 register_model_adapter(ManticoreAdapter)
