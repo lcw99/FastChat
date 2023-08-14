@@ -8,7 +8,7 @@ import logging
 import json
 import os
 import time
-from typing import List
+from typing import List, Optional
 import threading
 import uuid
 
@@ -35,6 +35,7 @@ import torch.nn.functional as F
 import uvicorn
 
 from fastchat.constants import WORKER_HEART_BEAT_INTERVAL, ErrorCode, SERVER_ERROR_MSG
+from fastchat.conversation import get_conv_template
 from fastchat.model.model_adapter import (
     load_model,
     add_model_args,
@@ -42,6 +43,7 @@ from fastchat.model.model_adapter import (
     get_generate_stream_function,
 )
 from fastchat.modules.gptq import GptqConfig
+from fastchat.modules.awq import AWQConfig
 from fastchat.utils import build_logger, pretty_print_semaphore, get_context_length
 
 
@@ -66,6 +68,7 @@ class BaseModelWorker:
         model_path: str,
         model_names: List[str],
         limit_worker_concurrency: int,
+        conv_template: str = None,
     ):
         self.controller_addr = controller_addr
         self.worker_addr = worker_addr
@@ -74,8 +77,11 @@ class BaseModelWorker:
             model_path = model_path[:-1]
         self.model_names = model_names or [model_path.split("/")[-1]]
         self.limit_worker_concurrency = limit_worker_concurrency
-
-        self.conv = get_conversation_template(model_path)
+        if conv_template:
+            self.conv = get_conv_template(conv_template)
+        else:
+            self.conv = get_conversation_template(model_path)
+        self.conv.sep_style = int(self.conv.sep_style)
         self.tokenizer = None
         self.context_len = None
         self.call_ct = 0
@@ -124,7 +130,7 @@ class BaseModelWorker:
                 )
                 exist = ret.json()["exist"]
                 break
-            except requests.exceptions.RequestException as e:
+            except (requests.exceptions.RequestException, KeyError) as e:
                 logger.error(f"heart beat error: {e}")
             time.sleep(5)
 
@@ -182,8 +188,10 @@ class ModelWorker(BaseModelWorker):
         max_gpu_memory: str,
         load_8bit: bool = False,
         cpu_offloading: bool = False,
-        gptq_config: bool = None,
+        gptq_config: Optional[GptqConfig] = None,
+        awq_config: Optional[AWQConfig] = None,
         stream_interval: int = 2,
+        conv_template: str = None,
     ):
         super().__init__(
             controller_addr,
@@ -192,17 +200,19 @@ class ModelWorker(BaseModelWorker):
             model_path,
             model_names,
             limit_worker_concurrency,
+            conv_template=conv_template,
         )
 
         logger.info(f"Loading the model {self.model_names} on worker {worker_id} ...")
         self.model, self.tokenizer = load_model(
             model_path,
-            device,
-            num_gpus,
-            max_gpu_memory,
-            load_8bit,
-            cpu_offloading,
-            gptq_config,
+            device=device,
+            num_gpus=num_gpus,
+            max_gpu_memory=max_gpu_memory,
+            load_8bit=load_8bit,
+            cpu_offloading=cpu_offloading,
+            gptq_config=gptq_config,
+            awq_config=awq_config,
         )
         self.device = device
         if self.tokenizer.pad_token == None:
@@ -266,6 +276,8 @@ class ModelWorker(BaseModelWorker):
             )  # llama supports batch inference
             is_chatglm = "chatglm" in str(type(self.model))
             is_t5 = "t5" in str(type(self.model))
+            is_bert = "bert" in str(type(self.model))
+
             if is_llama:
                 encoding = tokenizer.batch_encode_plus(
                     params["input"], padding=True, return_tensors="pt"
@@ -285,6 +297,22 @@ class ModelWorker(BaseModelWorker):
                 ret = {
                     "embedding": normalized_embeddings.tolist(),
                     "token_num": torch.sum(attention_mask).item(),
+                }
+            elif is_bert:
+                embedding = []
+                token_num = 0
+                for text in params["input"]:
+                    input_ids = tokenizer.encode(text, return_tensors="pt").to(
+                        self.device
+                    )
+                    model_output = self.model(input_ids)
+                    data = model_output[0][:, 0]
+                    data = F.normalize(torch.mean(data, dim=0), p=2, dim=0)
+                    embedding.append(data.tolist())
+                    token_num += len(input_ids[0])
+                ret = {
+                    "embedding": embedding,
+                    "token_num": token_num,
                 }
             else:
                 embedding = []
@@ -404,6 +432,9 @@ if __name__ == "__main__":
         help="Optional display comma separated names",
     )
     parser.add_argument(
+        "--conv-template", type=str, default=None, help="Conversation prompt template."
+    )
+    parser.add_argument(
         "--limit-worker-concurrency",
         type=int,
         default=5,
@@ -427,6 +458,11 @@ if __name__ == "__main__":
         groupsize=args.gptq_groupsize,
         act_order=args.gptq_act_order,
     )
+    awq_config = AWQConfig(
+        ckpt=args.awq_ckpt or args.model_path,
+        wbits=args.awq_wbits,
+        groupsize=args.awq_groupsize,
+    )
 
     worker = ModelWorker(
         args.controller_address,
@@ -442,6 +478,8 @@ if __name__ == "__main__":
         load_8bit=args.load_8bit,
         cpu_offloading=args.cpu_offloading,
         gptq_config=gptq_config,
+        awq_config=awq_config,
         stream_interval=args.stream_interval,
+        conv_template=args.conv_template,
     )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")

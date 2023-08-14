@@ -12,7 +12,6 @@ from typing import AsyncGenerator, Generator
 import warnings
 
 import requests
-import torch
 
 from fastchat.constants import LOGDIR
 
@@ -122,6 +121,8 @@ def disable_torch_init():
 
 def get_gpu_memory(max_gpus=None):
     """Get available memory for each GPU."""
+    import torch
+
     gpu_memory = []
     num_gpus = (
         torch.cuda.device_count()
@@ -161,6 +162,8 @@ def clean_flant5_ckpt(ckpt_path):
     Flan-t5 trained with HF+FSDP saves corrupted  weights for shared embeddings,
     Use this function to make sure it can be correctly loaded.
     """
+    import torch
+
     index_file = os.path.join(ckpt_path, "pytorch_model.bin.index.json")
     index_json = json.load(open(index_file, "r"))
 
@@ -271,13 +274,29 @@ def is_sentence_complete(output: str):
     return output.endswith(end_symbols)
 
 
+# Models don't use the same configuration key for determining the maximum
+# sequence length.  Store them here so we can sanely check them.
+# NOTE: The ordering here is important.  Some models have two of these and we
+# have a preference for which value gets used.
+SEQUENCE_LENGTH_KEYS = [
+    "max_sequence_length",
+    "seq_length",
+    "max_position_embeddings",
+    "max_seq_len",
+    "model_max_length",
+]
+
+
 def get_context_length(config):
     """Get the context length of a model from a huggingface model config."""
-    if hasattr(config, "max_sequence_length"):
-        return config.max_sequence_length
-    elif hasattr(config, "seq_length"):
-        return config.seq_length
-    elif hasattr(config, "max_position_embeddings"):
-        return config.max_position_embeddings
+    rope_scaling = getattr(config, "rope_scaling", None)
+    if rope_scaling:
+        rope_scaling_factor = config.rope_scaling["factor"]
     else:
-        return 2048
+        rope_scaling_factor = 1
+
+    for key in SEQUENCE_LENGTH_KEYS:
+        val = getattr(config, key, None)
+        if val is not None:
+            return int(rope_scaling_factor * val)
+    return 2048

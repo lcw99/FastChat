@@ -18,11 +18,11 @@ from fastchat.model import load_model, get_conversation_template, add_model_args
 def main(args):
     model, tokenizer = load_model(
         args.model_path,
-        args.device,
-        args.num_gpus,
-        args.max_gpu_memory,
-        args.load_8bit,
-        args.cpu_offloading,
+        device=args.device,
+        num_gpus=args.num_gpus,
+        max_gpu_memory=args.max_gpu_memory,
+        load_8bit=args.load_8bit,
+        cpu_offloading=args.cpu_offloading,
         revision=args.revision,
         debug=args.debug,
     )
@@ -34,10 +34,11 @@ def main(args):
     conv.append_message(conv.roles[1], None)
     prompt = conv.get_prompt()
 
-    input_ids = tokenizer([prompt]).input_ids
+    inputs = tokenizer([prompt])
+    inputs = {k: torch.tensor(v).to(args.device) for k, v in inputs.items()}
     output_ids = model.generate(
-        torch.as_tensor(input_ids).cuda(),
-        do_sample=True,
+        **inputs,
+        do_sample=True if args.temperature > 1e-5 else False,
         temperature=args.temperature,
         repetition_penalty=args.repetition_penalty,
         max_new_tokens=args.max_new_tokens,
@@ -46,7 +47,7 @@ def main(args):
     if model.config.is_encoder_decoder:
         output_ids = output_ids[0]
     else:
-        output_ids = output_ids[0][len(input_ids[0]) :]
+        output_ids = output_ids[0][len(inputs["input_ids"][0]) :]
     outputs = tokenizer.decode(
         output_ids, skip_special_tokens=True, spaces_between_special_tokens=False
     )
