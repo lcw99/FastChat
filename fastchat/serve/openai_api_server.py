@@ -347,6 +347,13 @@ async def create_chat_completion(request: ChatCompletionRequest):
     async with httpx.AsyncClient() as client:
         worker_addr = await get_worker_address(request.model, client)
 
+        # write converation to file. lcw
+        print(request.messages[-1]['content'])
+        f = open(f"/home/chang/t9/conversations/{request.user}.txt", "w")
+        for m in request.messages:
+            f.write(f"{m['role']}: {m['content']}\n")
+        f.close();
+
         gen_params = await get_gen_params(
             request.model,
             worker_addr,
