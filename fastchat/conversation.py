@@ -756,6 +756,7 @@ register_conv_template(
         roles=("B", "A"),
         sep_style=SeparatorStyle.ADD_COLON_SINGLE,
         sep="\n",
+        stop_str="\nB:"
     )
 )
 
