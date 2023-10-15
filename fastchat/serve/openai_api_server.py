@@ -387,15 +387,17 @@ async def create_chat_completion(request: ChatCompletionRequest):
     )
 
     # lcw
+    MAX_NUM_MESSAGES = 11
+
     full_conv = json.dumps(request.messages, ensure_ascii=False, indent=2)
     messages = request.messages
     system_message = messages.pop(0)
-    MAX_NUM_MESSAGES = 3
     context_length = await get_context_length(request, worker_addr)
     if len(messages) > MAX_NUM_MESSAGES:
         messages = messages[-MAX_NUM_MESSAGES:]
     messages.insert(0, system_message)
-
+    messages[-1]['content'] += "</s>"
+    
     request.messages = messages
     max_tokens = request.max_tokens
     while True:
@@ -437,7 +439,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     )
 
     # print(messages)
-    # print(gen_params["prompt"])
+    print(gen_params["prompt"])
     print(f"max_new_tokens={gen_params['max_new_tokens']}")
     print(f"{request.user=}")
 
