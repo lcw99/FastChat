@@ -144,6 +144,7 @@ async def check_model(request) -> Optional[JSONResponse]:
         )
     return ret
 
+
 # lcw
 async def get_token_length(request, prompt, worker_addr):
     token_num = await fetch_remote(
@@ -153,12 +154,16 @@ async def get_token_length(request, prompt, worker_addr):
     )
     return token_num
 
+
 async def get_context_length(request, worker_addr):
     context_len = await fetch_remote(
         worker_addr + "/model_details", {"model": request.model}, "context_length"
     )
     return context_len
+
+
 # end lcw
+
 
 async def check_length(request, prompt, max_tokens, worker_addr):
     context_len = await fetch_remote(
@@ -380,20 +385,20 @@ async def create_chat_completion(request: ChatCompletionRequest):
         echo=False,
         stop=request.stop,
     )
-    
+
     # lcw
     full_conv = json.dumps(request.messages, ensure_ascii=False, indent=2)
     messages = request.messages
-    system_message = messages.pop(0) 
+    system_message = messages.pop(0)
     MAX_NUM_MESSAGES = 3
     context_length = await get_context_length(request, worker_addr)
     if len(messages) > MAX_NUM_MESSAGES:
         messages = messages[-MAX_NUM_MESSAGES:]
     messages.insert(0, system_message)
-    
+
     request.messages = messages
     max_tokens = request.max_tokens
-    while True:    
+    while True:
         gen_params = await get_gen_params(
             request.model,
             worker_addr,
@@ -404,7 +409,9 @@ async def create_chat_completion(request: ChatCompletionRequest):
             echo=False,
             stop=request.stop,
         )
-        input_length = await get_token_length(request, gen_params["prompt"], worker_addr)
+        input_length = await get_token_length(
+            request, gen_params["prompt"], worker_addr
+        )
         print(f"{input_length=}\n{max_tokens=}")
         if input_length + max_tokens > context_length:
             messages = messages.pop(0)
@@ -414,7 +421,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
                 max_tokens = 100
             elif max_tokens > 1000:
                 max_tokens = 1000
-            break        
+            break
 
     request.messages = messages
     request.max_tokens = max_tokens
@@ -428,15 +435,15 @@ async def create_chat_completion(request: ChatCompletionRequest):
         echo=False,
         stop=request.stop,
     )
-    
+
     # print(messages)
     # print(gen_params["prompt"])
     print(f"max_new_tokens={gen_params['max_new_tokens']}")
     print(f"{request.user=}")
-    
+
     if "|" in request.user:
         uu = request.user.split("|")
-        newpath = f"{Path.home()}/log/saju-conv/{uu[1]}" 
+        newpath = f"{Path.home()}/log/saju-conv/{uu[1]}"
         if not os.path.exists(newpath):
             os.makedirs(newpath)
 
@@ -444,7 +451,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         with open(os.path.join(newpath, file_name), "w") as f:
             f.write(full_conv)
 
-    # end lcw 
+    # end lcw
 
     error_check_ret = await check_length(
         request,
@@ -452,7 +459,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         gen_params["max_new_tokens"],
         worker_addr,
     )
-        
+
     if error_check_ret is not None:
         return error_check_ret
 
