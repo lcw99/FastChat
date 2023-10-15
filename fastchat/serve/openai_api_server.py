@@ -13,6 +13,7 @@ import json
 import logging
 import os
 from typing import Generator, Optional, Union, Dict, List, Any
+from pathlib import Path
 
 import aiohttp
 import fastapi
@@ -290,7 +291,6 @@ async def get_gen_params(
         # Add a blank message for the assistant.
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
-        print(prompt)   # lcw
 
     if max_tokens is None:
         max_tokens = 512
@@ -381,27 +381,78 @@ async def create_chat_completion(request: ChatCompletionRequest):
         stop=request.stop,
     )
     
+    # lcw
+    full_conv = json.dumps(request.messages, ensure_ascii=False, indent=2)
+    messages = request.messages
+    system_message = messages.pop(0) 
+    MAX_NUM_MESSAGES = 3
+    context_length = await get_context_length(request, worker_addr)
+    if len(messages) > MAX_NUM_MESSAGES:
+        messages = messages[-MAX_NUM_MESSAGES:]
+    messages.insert(0, system_message)
+    
+    request.messages = messages
+    max_tokens = request.max_tokens
+    while True:    
+        gen_params = await get_gen_params(
+            request.model,
+            worker_addr,
+            messages,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            max_tokens=max_tokens,
+            echo=False,
+            stop=request.stop,
+        )
+        input_length = await get_token_length(request, gen_params["prompt"], worker_addr)
+        print(f"{input_length=}\n{max_tokens=}")
+        if input_length + max_tokens > context_length:
+            messages = messages.pop(0)
+        else:
+            max_tokens = context_length - (input_length + max_tokens + 96)
+            if max_tokens < 100:
+                max_tokens = 100
+            elif max_tokens > 1000:
+                max_tokens = 1000
+            break        
+
+    request.messages = messages
+    request.max_tokens = max_tokens
+    gen_params = await get_gen_params(
+        request.model,
+        worker_addr,
+        messages,
+        temperature=request.temperature,
+        top_p=request.top_p,
+        max_tokens=max_tokens,
+        echo=False,
+        stop=request.stop,
+    )
+    
+    # print(messages)
+    # print(gen_params["prompt"])
+    print(f"max_new_tokens={gen_params['max_new_tokens']}")
+    print(f"{request.user=}")
+    
+    if "|" in request.user:
+        uu = request.user.split("|")
+        newpath = f"{Path.home()}/log/saju-conv/{uu[1]}" 
+        if not os.path.exists(newpath):
+            os.makedirs(newpath)
+
+        file_name = f"{uu[0]}.json"
+        with open(os.path.join(newpath, file_name), "w") as f:
+            f.write(full_conv)
+
+    # end lcw 
+
     error_check_ret = await check_length(
         request,
         gen_params["prompt"],
         gen_params["max_new_tokens"],
         worker_addr,
     )
-    
-    # lcw
-    token_length = await get_token_length(request, gen_params["prompt"], worker_addr)
-    print(f"{token_length=}")
-    if request.user == "check_length":
-        if error_check_ret is None:
-            return JSONResponse(
-                ErrorResponse(message="ok", code=token_length).dict(), status_code=200
-            )
-        else:
-            return JSONResponse(
-                ErrorResponse(message="failed", code=token_length).dict(), status_code=200
-            )
-    # end lcw 
-    
+        
     if error_check_ret is not None:
         return error_check_ret
 
