@@ -143,6 +143,21 @@ async def check_model(request) -> Optional[JSONResponse]:
         )
     return ret
 
+# lcw
+async def get_token_length(request, prompt, worker_addr):
+    token_num = await fetch_remote(
+        worker_addr + "/count_token",
+        {"model": request.model, "prompt": prompt},
+        "count",
+    )
+    return token_num
+
+async def get_context_length(request, worker_addr):
+    context_len = await fetch_remote(
+        worker_addr + "/model_details", {"model": request.model}, "context_length"
+    )
+    return context_len
+# end lcw
 
 async def check_length(request, prompt, max_tokens, worker_addr):
     context_len = await fetch_remote(
@@ -365,12 +380,28 @@ async def create_chat_completion(request: ChatCompletionRequest):
         echo=False,
         stop=request.stop,
     )
+    
     error_check_ret = await check_length(
         request,
         gen_params["prompt"],
         gen_params["max_new_tokens"],
         worker_addr,
     )
+    
+    # lcw
+    token_length = await get_token_length(request, gen_params["prompt"], worker_addr)
+    print(f"{token_length=}")
+    if request.user == "check_length":
+        if error_check_ret is None:
+            return JSONResponse(
+                ErrorResponse(message="ok", code=token_length).dict(), status_code=200
+            )
+        else:
+            return JSONResponse(
+                ErrorResponse(message="failed", code=token_length).dict(), status_code=200
+            )
+    # end lcw 
+    
     if error_check_ret is not None:
         return error_check_ret
 
