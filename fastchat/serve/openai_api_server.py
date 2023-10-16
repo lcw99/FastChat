@@ -414,9 +414,12 @@ async def create_chat_completion(request: ChatCompletionRequest):
         input_length = await get_token_length(
             request, gen_params["prompt"], worker_addr
         )
-        print(f"{input_length=}\n{max_tokens=}")
+        print(f"{input_length=}\n{max_tokens=}\n{len(messages)=}")
         if input_length + max_tokens > context_length:
-            messages = messages.pop(0)
+            if len(messages) == 2:
+                return create_error_response(ErrorCode.INTERNAL_ERROR, "message too long.")
+            else:
+                messages = messages.pop(0)
         else:
             max_tokens = context_length - (input_length + max_tokens + 96)
             if max_tokens < 100:
