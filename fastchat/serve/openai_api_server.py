@@ -400,6 +400,8 @@ async def create_chat_completion(request: ChatCompletionRequest):
     
     request.messages = messages
     max_tokens = request.max_tokens
+    if not request.max_tokens:
+        max_tokens = 500
     while True:
         gen_params = await get_gen_params(
             request.model,
@@ -429,7 +431,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
             break
 
     request.messages = messages
-    request.max_tokens = max_tokens
+    # request.max_tokens = max_tokens
     gen_params = await get_gen_params(
         request.model,
         worker_addr,
@@ -521,13 +523,14 @@ async def chat_completion_stream_generator(
         chunk = ChatCompletionStreamResponse(
             id=id, choices=[choice_data], model=model_name
         )
-        yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+        yield f"data: {chunk.json(exclude_unset=False, ensure_ascii=False)}\n\n"
 
         previous_text = ""
         async for content in generate_completion_stream(gen_params, worker_addr):
             if content["error_code"] != 0:
                 yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
                 yield "data: [DONE]\n\n"
+                print("[DONE ERROR]") # lcw
                 return
             decoded_unicode = content["text"].replace("\ufffd", "")
             delta_text = decoded_unicode[len(previous_text) :]
@@ -536,7 +539,7 @@ async def chat_completion_stream_generator(
                 if len(decoded_unicode) > len(previous_text)
                 else previous_text
             )
-
+            print(delta_text, end="")   # lcw
             if len(delta_text) == 0:
                 delta_text = None
             choice_data = ChatCompletionResponseStreamChoice(
@@ -551,10 +554,13 @@ async def chat_completion_stream_generator(
                 if content.get("finish_reason", None) is not None:
                     finish_stream_events.append(chunk)
                 continue
-            yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+            data = f"data: {chunk.json(exclude_unset=False, ensure_ascii=False)}\n\n"
+            # print(data)
+            yield data
     # There is not "content" field in the last delta message, so exclude_none to exclude field "content".
     for finish_chunk in finish_stream_events:
         yield f"data: {finish_chunk.json(exclude_none=True, ensure_ascii=False)}\n\n"
+    print("[DONE]") # lcw
     yield "data: [DONE]\n\n"
 
 
