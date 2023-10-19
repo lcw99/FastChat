@@ -389,7 +389,11 @@ async def create_chat_completion(request: ChatCompletionRequest):
     # lcw
     MAX_NUM_MESSAGES = 11
 
-    full_conv = json.dumps(request.messages, ensure_ascii=False, indent=2)
+    full_conv = "\n".join([json.dumps(m, ensure_ascii=False) for m in request.messages])
+    # for entry in request.messages:
+    #     full_conv += json.dumps(entry, ensure_ascii=False) + "\n"
+
+    # full_conv = json.dumps(request.messages, ensure_ascii=False, indent=2)
     messages = request.messages
     system_message = messages.pop(0)
     context_length = await get_context_length(request, worker_addr)
@@ -448,14 +452,16 @@ async def create_chat_completion(request: ChatCompletionRequest):
     print(f"max_new_tokens={gen_params['max_new_tokens']}")
     print(f"{request.user=}")
 
+    conv_file_path = None
     if "|" in request.user:
         uu = request.user.split("|")
         newpath = f"{Path.home()}/log/saju-conv/{uu[1]}"
         if not os.path.exists(newpath):
             os.makedirs(newpath)
 
-        file_name = f"{uu[0]}.json"
-        with open(os.path.join(newpath, file_name), "w") as f:
+        file_name = f"{uu[0]}.jsonl"
+        conv_file_path = os.path.join(newpath, file_name)
+        with open(conv_file_path, "w") as f:
             f.write(full_conv)
 
     # end lcw
@@ -472,7 +478,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     if request.stream:
         generator = chat_completion_stream_generator(
-            request.model, gen_params, request.n, worker_addr
+            request.model, gen_params, request.n, worker_addr, conv_file_path=conv_file_path
         )
         return StreamingResponse(generator, media_type="text/event-stream")
 
@@ -505,7 +511,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
 
 async def chat_completion_stream_generator(
-    model_name: str, gen_params: Dict[str, Any], n: int, worker_addr: str
+    model_name: str, gen_params: Dict[str, Any], n: int, worker_addr: str, conv_file_path: str = None
 ) -> Generator[str, Any, None]:
     """
     Event stream format:
@@ -513,6 +519,7 @@ async def chat_completion_stream_generator(
     """
     id = f"chatcmpl-{shortuuid.random()}"
     finish_stream_events = []
+    assistant = ""
     for i in range(n):
         # First chunk with role
         choice_data = ChatCompletionResponseStreamChoice(
@@ -540,6 +547,7 @@ async def chat_completion_stream_generator(
                 else previous_text
             )
             print(delta_text, end="")   # lcw
+            assistant += delta_text
             if len(delta_text) == 0:
                 delta_text = None
             choice_data = ChatCompletionResponseStreamChoice(
@@ -561,6 +569,10 @@ async def chat_completion_stream_generator(
     for finish_chunk in finish_stream_events:
         yield f"data: {finish_chunk.json(exclude_none=True, ensure_ascii=False)}\n\n"
     print("[DONE]") # lcw
+    if conv_file_path:
+        data = {"role": "assistant", "content": assistant}
+        with open(conv_file_path, "a") as f:
+            f.write("\n" + json.dumps(data, ensure_ascii=False))
     yield "data: [DONE]\n\n"
 
 
