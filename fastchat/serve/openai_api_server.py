@@ -432,8 +432,8 @@ async def create_chat_completion(request: ChatCompletionRequest):
             max_tokens = context_length - (input_length + max_tokens + 96)
             if max_tokens < 100:
                 max_tokens = 100
-            elif max_tokens > 500:
-                max_tokens = 500
+            elif max_tokens > 700:
+                max_tokens = 700
             break
     print(f"after calc {max_tokens=} {input_length=}")
 
