@@ -283,6 +283,7 @@ async def get_gen_params(
         prompt = messages
     else:
         for message in messages:
+            print(message)
             msg_role = message["role"]
             if msg_role == "system":
                 conv.set_system_message(message["content"])
@@ -404,6 +405,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     
     request.messages = messages
     max_tokens = request.max_tokens
+    print(messages)
     if not request.max_tokens:
         max_tokens = 500
     while True:
@@ -425,14 +427,15 @@ async def create_chat_completion(request: ChatCompletionRequest):
             if len(messages) == 2:
                 return create_error_response(ErrorCode.INTERNAL_ERROR, "message too long.")
             else:
-                messages = messages.pop(0)
+                messages.pop(0)
         else:
             max_tokens = context_length - (input_length + max_tokens + 96)
             if max_tokens < 100:
                 max_tokens = 100
-            elif max_tokens > 1000:
-                max_tokens = 1000
+            elif max_tokens > 500:
+                max_tokens = 500
             break
+    print(f"after calc {max_tokens=} {input_length=}")
 
     request.messages = messages
     # request.max_tokens = max_tokens
