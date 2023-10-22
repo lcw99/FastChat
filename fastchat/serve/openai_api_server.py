@@ -349,9 +349,8 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
         # write converation to file. lcw
         print(request.messages[-1]['content'])
-        f = open(f"/home/chang/t9/conversations/{request.user}.txt", "w")
-        for m in request.messages:
-            f.write(f"{m['role']}: {m['content']}\n")
+        f = open(f"/home/chang/t9/conversations/{request.user}.txt", "a")
+        f.write(f"B: {request.messages[-1]['content']}\n")
         f.close();
 
         gen_params = await get_gen_params(

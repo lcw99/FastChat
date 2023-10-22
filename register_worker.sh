@@ -1,0 +1,1 @@
+python3 -m fastchat.serve.register_worker --controller http://localhost:21001 --worker-name http://localhost:$1
