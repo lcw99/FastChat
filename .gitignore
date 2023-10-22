@@ -29,3 +29,8 @@ tests/state_of_the_union.txt
 
 # Build
 build
+
+localtools/
+mw.sh
+openai.sh
+ssh_tunnel.sh
