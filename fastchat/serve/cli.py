@@ -2,7 +2,7 @@
 Chat with a model with command line interface.
 
 Usage:
-python3 -m fastchat.serve.cli --model lmsys/vicuna-7b-v1.3
+python3 -m fastchat.serve.cli --model lmsys/vicuna-7b-v1.5
 python3 -m fastchat.serve.cli --model lmsys/fastchat-t5-3b-v1.0
 
 Other commands:
@@ -104,7 +104,7 @@ class RichChatIO(ChatIO):
         return prompt_input
 
     def prompt_for_output(self, role: str):
-        self._console.print(f"[bold]{role}:")
+        self._console.print(f"[bold]{role.replace('/', '|')}:")
 
     def stream_output(self, output_stream):
         """Stream output from a role."""
