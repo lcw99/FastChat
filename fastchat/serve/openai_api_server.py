@@ -270,7 +270,6 @@ async def get_gen_params(
         # Add a blank message for the assistant.
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
-        print(prompt)   # lcw
 
     gen_params = {
         "model": model_name,

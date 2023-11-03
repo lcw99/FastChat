@@ -400,7 +400,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     if len(messages) > MAX_NUM_MESSAGES:
         messages = messages[-MAX_NUM_MESSAGES:]
     messages.insert(0, system_message)
-    messages[-1]['content'] += "</s>"
+    # messages[-1]['content'] += "</s>"
     
     request.messages = messages
     max_tokens = request.max_tokens
@@ -430,8 +430,10 @@ async def create_chat_completion(request: ChatCompletionRequest):
             max_tokens = context_length - (input_length + 96)
             if max_tokens < 100:
                 max_tokens = 100
-            elif max_tokens > 700:
-                max_tokens = 700
+            elif max_tokens > 2000:
+                max_tokens = 2000
+            if max_tokens > request.max_tokens:
+                max_tokens = request.max_tokens
             break
     print(f"after calc {max_tokens=} {input_length=} {context_length=}")
 
