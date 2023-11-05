@@ -453,7 +453,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     # print(messages)
     print(gen_params["prompt"])
     print(f"max_new_tokens={gen_params['max_new_tokens']}")
-    print(f"{request.user=}")
+    print(f"{request.temperature=}, {request.top_p=}")
 
     conv_file_path = None
     if "|" in request.user:
