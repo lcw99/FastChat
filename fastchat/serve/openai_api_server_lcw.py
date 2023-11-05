@@ -400,7 +400,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     if len(messages) > MAX_NUM_MESSAGES:
         messages = messages[-MAX_NUM_MESSAGES:]
     messages.insert(0, system_message)
-    # messages[-1]['content'] += "</s>"
+    messages[-1]['content'] += "(내 운명이 걸린 일이니 친절하고 정확한 답변 부탁 해요)"
     
     request.messages = messages
     max_tokens = request.max_tokens
@@ -425,14 +425,14 @@ async def create_chat_completion(request: ChatCompletionRequest):
             if len(messages) == 2:
                 return create_error_response(ErrorCode.INTERNAL_ERROR, "message too long.")
             else:
-                messages.pop(0)
+                messages.pop(1)
         else:
             max_tokens = context_length - (input_length + 96)
             if max_tokens < 100:
                 max_tokens = 100
             elif max_tokens > 2000:
                 max_tokens = 2000
-            if max_tokens > request.max_tokens:
+            if request.max_tokens and max_tokens > request.max_tokens:
                 max_tokens = request.max_tokens
             break
     print(f"after calc {max_tokens=} {input_length=} {context_length=}")
