@@ -400,7 +400,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     if len(messages) > MAX_NUM_MESSAGES:
         messages = messages[-MAX_NUM_MESSAGES:]
     messages.insert(0, system_message)
-    messages[-1]['content'] += "(내 운명이 걸린 일이니 친절하고 정확한 답변 부탁 해요)"
+    messages[-1]['content'] += "(내 운명이 걸린 일이니 친절하고 간략한 답변 부탁 해요)"
     
     request.messages = messages
     max_tokens = request.max_tokens
