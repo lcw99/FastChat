@@ -363,6 +363,7 @@ async def show_available_models():
         model_cards.append(ModelCard(id=m, root=m, permission=[ModelPermission()]))
     return ModelList(data=model_cards)
 
+
 class MyStreamingResponse(StreamingResponse):
     from starlette.types import Receive, Scope, Send
     from starlette.background import BackgroundTask
@@ -380,9 +381,11 @@ class MyStreamingResponse(StreamingResponse):
         media_type: typing.Optional[str] = None,
         background: typing.Optional[BackgroundTask] = None,
         callback: typing.Callable = None,
-    ) -> None:    
+    ) -> None:
         self.callback = callback
-        super(MyStreamingResponse, self).__init__(content, status_code, headers, media_type, background)
+        super(MyStreamingResponse, self).__init__(
+            content, status_code, headers, media_type, background
+        )
 
     async def listen_for_disconnect(self, receive: Receive) -> None:
         while True:
@@ -392,7 +395,7 @@ class MyStreamingResponse(StreamingResponse):
                 await self.callback()
                 break
 
-    
+
 @app.post("/v1/chat/completions", dependencies=[Depends(check_api_key)])
 async def create_chat_completion(request: ChatCompletionRequest):
     """Creates a completion for the chat message"""
@@ -429,9 +432,9 @@ async def create_chat_completion(request: ChatCompletionRequest):
     if len(messages) > MAX_NUM_MESSAGES:
         messages = messages[-MAX_NUM_MESSAGES:]
     messages.insert(0, system_message)
-    messages[-1]['content'] = messages[-1]['content'].replace("사주", "운세[사주]")
-    messages[-1]['content'] += "(내 운명이 걸린 일이니 위 사주를 분석하여 답변하세요)"
-    
+    messages[-1]["content"] = messages[-1]["content"].replace("사주", "운세[사주]")
+    messages[-1]["content"] += "(내 운명이 걸린 일이니 위 사주를 분석하여 답변하세요)"
+
     print(f"{request.max_tokens=}")
     request.messages = messages
     max_tokens = request.max_tokens
@@ -454,7 +457,9 @@ async def create_chat_completion(request: ChatCompletionRequest):
         print(f"{input_length=}\n{max_tokens=}\n{len(messages)=}")
         if input_length + max_tokens > context_length:
             if len(messages) == 2:
-                return create_error_response(ErrorCode.INTERNAL_ERROR, "message too long.")
+                return create_error_response(
+                    ErrorCode.INTERNAL_ERROR, "message too long."
+                )
             else:
                 messages.pop(1)
         else:
@@ -511,14 +516,23 @@ async def create_chat_completion(request: ChatCompletionRequest):
         return error_check_ret
 
     if request.stream:
-        client = httpx.AsyncClient() 
+        client = httpx.AsyncClient()
         generator = chat_completion_stream_generator(
-            request.model, gen_params, request.n, worker_addr, conv_file_path=conv_file_path, client=client
+            request.model,
+            gen_params,
+            request.n,
+            worker_addr,
+            conv_file_path=conv_file_path,
+            client=client,
         )
+
         async def callback():
             await client.aclose()
             print("client closed")
-        res = MyStreamingResponse(generator, media_type="text/event-stream", callback=callback)
+
+        res = MyStreamingResponse(
+            generator, media_type="text/event-stream", callback=callback
+        )
         return res
 
     choices = []
@@ -550,7 +564,12 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
 
 async def chat_completion_stream_generator(
-    model_name: str, gen_params: Dict[str, Any], n: int, worker_addr: str, conv_file_path: str = None, client: httpx.AsyncClient = None
+    model_name: str,
+    gen_params: Dict[str, Any],
+    n: int,
+    worker_addr: str,
+    conv_file_path: str = None,
+    client: httpx.AsyncClient = None,
 ) -> Generator[str, Any, None]:
     """
     Event stream format:
@@ -572,17 +591,19 @@ async def chat_completion_stream_generator(
         yield f"data: {chunk.json(exclude_unset=False, ensure_ascii=False)}\n\n"
 
         previous_text = ""
-        async for content in generate_completion_stream(gen_params, worker_addr, client=client):
+        async for content in generate_completion_stream(
+            gen_params, worker_addr, client=client
+        ):
             if content["error_code"] != 0:
                 yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
                 yield "data: [DONE]\n\n"
 
                 # lcw
-                print(f"[DONE ERROR]: {content}") # lcw
+                print(f"[DONE ERROR]: {content}")  # lcw
                 if conv_file_path:
                     data = {"role": "assistant", "content": assistant}
                     with open(conv_file_path, "a") as f:
-                        f.write("\n" + json.dumps(data, ensure_ascii=False))                
+                        f.write("\n" + json.dumps(data, ensure_ascii=False))
                 return
             decoded_unicode = content["text"].replace("\ufffd", "")
             delta_text = decoded_unicode[len(previous_text) :]
@@ -591,7 +612,7 @@ async def chat_completion_stream_generator(
                 if len(decoded_unicode) > len(previous_text)
                 else previous_text
             )
-            print("." + delta_text, end="", flush=True)   # lcw
+            # print("." + delta_text, end="", flush=True)   # lcw
             assistant += delta_text
             if len(delta_text) == 0:
                 delta_text = None
@@ -615,12 +636,12 @@ async def chat_completion_stream_generator(
         yield f"data: {finish_chunk.json(exclude_none=True, ensure_ascii=False)}\n\n"
 
     # lcw
-    print(f"[DONE]: {assistant}") 
+    print(f"[DONE]: {assistant}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
         with open(conv_file_path, "a") as f:
             f.write("\n" + json.dumps(data, ensure_ascii=False))
-            
+
     yield "data: [DONE]\n\n"
 
 
@@ -749,7 +770,9 @@ async def generate_completion_stream_generator(
     yield "data: [DONE]\n\n"
 
 
-async def generate_completion_stream(payload: Dict[str, Any], worker_addr: str, client: httpx.AsyncClient):
+async def generate_completion_stream(
+    payload: Dict[str, Any], worker_addr: str, client: httpx.AsyncClient
+):
     controller_address = app_settings.controller_address
     async with client:
         delimiter = b"\0"

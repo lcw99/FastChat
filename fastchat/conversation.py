@@ -766,10 +766,11 @@ register_conv_template(
 register_conv_template(
     Conversation(
         name="polyglot_changgpt",
+        system_template="system: {system_message}\n",
         roles=("B", "A"),
         sep_style=SeparatorStyle.ADD_COLON_SINGLE,
         sep="\n",
-        stop_str="###",
+        stop_str=["\n###"],
         stop_token_ids=[1, 2, 835, 2277],
     )
 )
