@@ -24,6 +24,7 @@ from transformers import (
     LlamaTokenizer,
     LlamaForCausalLM,
     T5Tokenizer,
+    BitsAndBytesConfig,
 )
 
 from fastchat.constants import CPU_ISA
@@ -1658,6 +1659,25 @@ class Llama2ChangAdapter(Llama2Adapter):
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("polyglot_changgpt")
 
+    def load_compress_model(self, model_path, device, torch_dtype, revision="main"):
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16
+        )
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            use_fast=self.use_fast_tokenizer,
+            revision=revision,
+            trust_remote_code=True,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path, 
+            quantization_config=bnb_config,
+            load_in_4bit=True
+        )
+        return model, tokenizer
 
 class ZephyrAdapter(BaseModelAdapter):
     """The model adapter for Zephyr (e.g. HuggingFaceH4/zephyr-7b-alpha)"""

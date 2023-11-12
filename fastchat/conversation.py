@@ -769,8 +769,8 @@ register_conv_template(
         roles=("B", "A"),
         sep_style=SeparatorStyle.ADD_COLON_SINGLE,
         sep="\n",
-        stop_str="\nB:",
-        stop_token_ids=[1, 2],
+        stop_str="###",
+        stop_token_ids=[1, 2, 835, 2277],
     )
 )
 

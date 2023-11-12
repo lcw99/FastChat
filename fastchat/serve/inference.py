@@ -174,6 +174,14 @@ def generate_stream(
         token = tokens[0]
         output_ids.append(token)
 
+        # lcw
+        # ch = tokenizer.decode(
+        #     [token],
+        #     skip_special_tokens=False,
+        #     spaces_between_special_tokens=False,
+        #     clean_up_tokenization_spaces=True,
+        # )
+        # print(f"{token}.{ch}.{stop_token_ids}")
         if token in stop_token_ids:
             stopped = True
         else:
