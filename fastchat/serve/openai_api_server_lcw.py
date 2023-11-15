@@ -434,7 +434,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     messages.insert(0, system_message)
     if "ChangGPT" not in system_message["content"] and "SajuGPT" not in system_message["content"]:
         messages[-1]["content"] = messages[-1]["content"].replace("사주", "운세[사주]")
-        messages[-1]["content"] += "(내 운명이 걸린 일이니 위 사주를 분석하여 답변하세요)"
+        # messages[-1]["content"] += "(내 운명이 걸린 일이니 위 사주를 분석하여 답변하세요)"
 
     print(f"{request.max_tokens=}")
     request.messages = messages
