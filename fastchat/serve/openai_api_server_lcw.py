@@ -493,9 +493,11 @@ async def create_chat_completion(request: ChatCompletionRequest):
     print(f"{request.temperature=}, {request.top_p=}")
 
     conv_file_path = None
+    user_id = ""
     if "|" in request.user:
         uu = request.user.split("|")
-        newpath = f"{Path.home()}/log/saju-conv/{uu[1]}"
+        user_id = uu[1]
+        newpath = f"{Path.home()}/log/saju-conv/{user_id}"
         if not os.path.exists(newpath):
             os.makedirs(newpath)
 
@@ -503,7 +505,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         conv_file_path = os.path.join(newpath, file_name)
         with open(conv_file_path, "w") as f:
             f.write(full_conv)
-
+    print(f"{user_id=}")
     # end lcw
 
     error_check_ret = await check_length(
