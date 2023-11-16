@@ -28,6 +28,7 @@ import shortuuid
 import tiktoken
 import uvicorn
 import typing
+from termcolor import colored
 
 from fastchat.constants import (
     WORKER_API_TIMEOUT,
@@ -472,7 +473,6 @@ async def create_chat_completion(request: ChatCompletionRequest):
             if request.max_tokens and max_tokens > request.max_tokens:
                 max_tokens = request.max_tokens
             break
-    print(f"after calc {max_tokens=} {input_length=} {context_length=}")
 
     request.messages = messages
     # request.max_tokens = max_tokens
@@ -489,6 +489,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     # print(messages)
     print(gen_params["prompt"])
+    print(f"after calc {max_tokens=} {input_length=} {context_length=}")
     print(f"max_new_tokens={gen_params['max_new_tokens']}")
     print(f"{request.temperature=}, {request.top_p=}")
 
@@ -639,7 +640,10 @@ async def chat_completion_stream_generator(
         yield f"data: {finish_chunk.json(exclude_none=True, ensure_ascii=False)}\n\n"
 
     # lcw
-    print(f"[DONE]: {assistant}")
+    prompt = gen_params["prompt"]
+    q = prompt.splitlines()[-2]
+    print(colored(f"\n{q}", on_color="on_green"))
+    print(f"A: {assistant}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
         with open(conv_file_path, "a") as f:
