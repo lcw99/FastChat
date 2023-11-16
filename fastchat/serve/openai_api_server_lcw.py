@@ -643,7 +643,7 @@ async def chat_completion_stream_generator(
     prompt = gen_params["prompt"]
     q = prompt.splitlines()[-2]
     print(colored(f"\n{q}", on_color="on_green"))
-    print(f"A: {assistant}")
+    print(f"A: {assistant.strip()}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
         with open(conv_file_path, "a") as f:
