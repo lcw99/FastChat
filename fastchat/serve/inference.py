@@ -111,6 +111,11 @@ def generate_stream(
     past_key_values = out = None
     sent_interrupt = False
     finish_reason = None
+    
+    #lcw
+    prev_ch = None
+    repeat_count = 0
+    
     for i in range(max_new_tokens):
         if i == 0:  # prefill
             if model.config.is_encoder_decoder:
@@ -180,13 +185,21 @@ def generate_stream(
             stopped = False
 
         # lcw
+        ch = tokenizer.decode(
+            [token],
+            skip_special_tokens=False,
+            spaces_between_special_tokens=False,
+            clean_up_tokenization_spaces=True,
+        )
+        # print(f"{token}.{ch}/", end="", flush=True)
+        if ch == prev_ch and ch == "\n":
+            repeat_count += 1
+        else:
+            repeat_count = 0
+        prev_ch = ch
+        if repeat_count > 5:
+            stopped = True 
         if stopped:
-            ch = tokenizer.decode(
-                [token],
-                skip_special_tokens=False,
-                spaces_between_special_tokens=False,
-                clean_up_tokenization_spaces=True,
-            )
             print(f"{token}.{ch}.{stop_token_ids}")
 
         # Yield the output tokens

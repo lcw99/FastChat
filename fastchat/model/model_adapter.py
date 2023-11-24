@@ -1717,6 +1717,7 @@ class ZephyrChangAdapter(BaseModelAdapter):
             model_path,
             trust_remote_code=True,
             # use_flash_attention_2 = True,
+            low_cpu_mem_usage=True,
             **from_pretrained_kwargs,
         ).eval()
         return model, tokenizer    
