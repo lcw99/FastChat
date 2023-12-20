@@ -233,6 +233,7 @@ def generate_stream(
                     pos = output.rfind(stop_str, rfind_start)
                     if pos != -1:
                         output = output[:pos]
+                        print(f"stoped str={stop_str}")
                         stopped = True
                     else:
                         partially_stopped = is_partial_stop(output, stop_str)
@@ -241,6 +242,7 @@ def generate_stream(
                         pos = output.rfind(each_stop, rfind_start)
                         if pos != -1:
                             output = output[:pos]
+                            print(f"stoped str={each_stop}")
                             stopped = True
                             break
                         else:

@@ -1688,7 +1688,6 @@ class ZephyrAdapter(BaseModelAdapter):
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("zephyr")
 
-
 class XwinLMAdapter(BaseModelAdapter):
     """The model adapter for Xwin-LM V0.1 and V0.2 series of models(e.g., Xwin-LM/Xwin-LM-70B-V0.1)"""
 
@@ -1716,14 +1715,14 @@ class ZephyrChangAdapter(BaseModelAdapter):
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             trust_remote_code=True,
-            # use_flash_attention_2 = True,
+            use_flash_attention_2 = False,
             low_cpu_mem_usage=True,
             **from_pretrained_kwargs,
         ).eval()
         return model, tokenizer    
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
-        return get_conv_template("polyglot_changgpt")
+        return get_conv_template("zepyhkor")
     
 # Note: the registration order matters.
 # The one registered earlier has a higher matching priority.

@@ -775,6 +775,19 @@ register_conv_template(
     )
 )
 
+# zepykor default template
+register_conv_template(
+    Conversation(
+        name="zepyhkor",
+        system_template="system: {system_message}\n",
+        roles=("B", "A"),
+        sep_style=SeparatorStyle.ADD_COLON_SINGLE,
+        sep="\n",
+        stop_str=["</s>"],
+        stop_token_ids=[1, 2],
+    )
+)
+
 # tigerbot template
 register_conv_template(
     Conversation(

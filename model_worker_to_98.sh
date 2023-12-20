@@ -1,0 +1,1 @@
+python -m fastchat.serve.model_worker --num-gpus 1 --model-names llama2-ko-chang-instruct-chat --model-path /home/chang/AI/llm/text-generation-webui/models/llama2-ko-chang-13b-1214-awq --controller-address http://192.168.25.98:21001 --worker-address http://192.168.25.74:21004 --port 21004 --host 192.168.25.74 --limit-worker-concurrency 2
