@@ -429,7 +429,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     # full_conv = json.dumps(request.messages, ensure_ascii=False, indent=2)
     messages = request.messages
     system_message = messages.pop(0)
-    context_length = await get_context_length(request, worker_addr)
+    context_length = (await get_context_length(request, worker_addr)) - 1024
     if len(messages) > MAX_NUM_MESSAGES:
         messages = messages[-MAX_NUM_MESSAGES:]
     messages.insert(0, system_message)
