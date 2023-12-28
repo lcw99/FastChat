@@ -439,7 +439,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         content = m['content'].strip()
         if m['role'] == 'assistant' and len(content) > 200:
             messages[i]['content'] = content[:100] + "..." + content[-100:]
-            print(f"compacted={messages[i]['content']}")
+            # print(f"compacted={messages[i]['content']}")
             
     messages.insert(0, system_message)
     if "ChangGPT" not in system_message["content"] and "SajuGPT" not in system_message["content"]:
