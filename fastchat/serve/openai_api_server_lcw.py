@@ -461,7 +461,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         messages[-1]["content"] = messages[-1]["content"].replace("사주", "운세[사주]")
         # messages[-1]["content"] += "(내 운명이 걸린 일이니 위 사주를 분석하여 답변하세요)"
         
-    messages.insert(len(messages) - 1, {"role": "user", "content": "최상단 system 운세 자료를 기반으로 명리 전문가로서 아래 질문에 답변하세요."})
+    messages.insert(len(messages) - 1, {"role": "user", "content": "상기 대화 보다는 맨앞 운세 자료를 기반으로 아래 질문에 답변하세요."})
 
     print(f"{request.max_tokens=}")
     request.messages = messages
