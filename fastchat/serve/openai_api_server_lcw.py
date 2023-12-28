@@ -435,6 +435,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         
     # compact assistant message
     for idx in range(len(messages)):
+        messages[idx]['content'] = messages[idx]['content'].strip()
         m = messages[idx]
         content = m['content'].strip()
         if m['role'] == 'assistant' and len(content) > 200:
