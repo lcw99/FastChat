@@ -31,7 +31,4 @@ tests/state_of_the_union.txt
 build
 
 localtools/
-model_worker.sh
-mw.sh
-openai.sh
-ssh_tunnel.sh
+*.sh

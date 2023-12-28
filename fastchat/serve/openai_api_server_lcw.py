@@ -432,6 +432,15 @@ async def create_chat_completion(request: ChatCompletionRequest):
     context_length = (await get_context_length(request, worker_addr)) - 1024
     if len(messages) > MAX_NUM_MESSAGES:
         messages = messages[-MAX_NUM_MESSAGES:]
+        
+    # compact assistant message
+    for i in range(len(messages)):
+        m = messages[i]
+        content = m['content'].strip()
+        if m['role'] == 'assistant' and len(content) > 200:
+            messages[i]['content'] = content[:100] + "..." + content[-100:]
+            print(f"compacted={messages[i]['content']}")
+            
     messages.insert(0, system_message)
     if "ChangGPT" not in system_message["content"] and "SajuGPT" not in system_message["content"]:
         messages[-1]["content"] = messages[-1]["content"].replace("사주", "운세[사주]")
