@@ -456,7 +456,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
             # messages[i]['content'] = content[:100] + "..." + content[-100:]
             # print(f"compacted={messages[i]['content']}")
             
-    if len(messages) > 2:
+    if len(messages) > 6:
         messages.insert(len(messages) - 1, {"role": "user", "content": "상기 대화 보다는 맨앞 운세 자료를 기반으로 아래 질문에 답변해."})
 
     messages.insert(0, system_message)
