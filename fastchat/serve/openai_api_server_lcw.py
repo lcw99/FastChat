@@ -457,7 +457,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
             # print(f"compacted={messages[i]['content']}")
             
     if len(messages) > 2:
-        messages.insert(len(messages) - 1, {"role": "user", "content": "상기 대화 보다는 맨앞 운세 자료를 기반으로 아래 질문에 답변하세요."})
+        messages.insert(len(messages) - 1, {"role": "user", "content": "상기 대화 보다는 맨앞 운세 자료를 기반으로 아래 질문에 답변해."})
 
     messages.insert(0, system_message)
     if "ChangGPT" not in system_message["content"] and "SajuGPT" not in system_message["content"]:
