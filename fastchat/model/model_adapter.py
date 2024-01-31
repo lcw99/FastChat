@@ -1654,12 +1654,13 @@ class Llama2ChangAdapter(Llama2Adapter):
     """The model adapter for Llama2-ko-chang (e.g., lcw99/llama2-ko-chang-instruct-chat)"""
 
     def match(self, model_path: str):
-        return "llama2-ko-chang" in model_path.lower()
+        return "llama2-ko-chang" in model_path.lower() or "solar" in model_path.lower()
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("polyglot_changgpt")
-
+    
     def load_compress_model(self, model_path, device, torch_dtype, revision="main"):
+        print("loading compressed model...")
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
@@ -1724,6 +1725,50 @@ class ZephyrChangAdapter(BaseModelAdapter):
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("zepyhkor")
     
+class PhikoChangAdapter(BaseModelAdapter):
+    """The model adapter for Llama2-ko-chang (e.g., lcw99/llama2-ko-chang-instruct-chat)"""
+
+    def match(self, model_path: str):
+        return "phiko" in model_path.lower()
+
+    def get_default_conv_template(self, model_path: str) -> Conversation:
+        return get_conv_template("phiko")
+    
+    def load_model(self, model_path: str, from_pretrained_kwargs: dict):
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            use_fast=self.use_fast_tokenizer,
+            trust_remote_code=False,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            trust_remote_code=True,
+            attn_implementation="flash_attention_2",
+            low_cpu_mem_usage=False,
+            **from_pretrained_kwargs,
+        ).eval()
+        return model, tokenizer    
+    
+    def load_compress_model(self, model_path, device, torch_dtype, revision="main"):
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16
+        )
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            use_fast=self.use_fast_tokenizer,
+            revision=revision,
+            trust_remote_code=True,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path, 
+            quantization_config=bnb_config,
+            load_in_4bit=True
+        )
+        return model, tokenizer
+    
 # Note: the registration order matters.
 # The one registered earlier has a higher matching priority.
 register_model_adapter(PeftModelAdapter)
@@ -1786,6 +1831,7 @@ register_model_adapter(Llama2ChangAdapter)
 register_model_adapter(ZephyrAdapter)
 register_model_adapter(XwinLMAdapter)
 register_model_adapter(ZephyrChangAdapter)
+register_model_adapter(PhikoChangAdapter)
 
 # After all adapters, try the default base adapter.
 register_model_adapter(BaseModelAdapter)
