@@ -116,6 +116,7 @@ def generate_stream(
     prev_ch = None
     repeat_count = 0
     
+    stopped = False
     for i in range(max_new_tokens):
         if i == 0:  # prefill
             if model.config.is_encoder_decoder:
