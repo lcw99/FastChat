@@ -113,6 +113,7 @@ def generate_stream(
     finish_reason = None
     
     #lcw
+    start = time.time()
     prev_ch = None
     repeat_count = 0
     
@@ -274,6 +275,11 @@ def generate_stream(
 
     if stopped:
         finish_reason = "stop"
+
+    #lcw
+    duration = time.time() - start
+    tps = round(i / duration, 2)
+    print(f"token = {i}, duration = {int(duration)}, tps = {tps}")
 
     yield {
         "text": output,
