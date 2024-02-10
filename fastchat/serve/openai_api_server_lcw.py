@@ -64,7 +64,11 @@ from fastchat.protocol.api_protocol import (
     APITokenCheckResponseItem,
 )
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
+from fastchat.utils import build_logger
+
+
+logger = build_logger("openai-api", "openai-api.log")
 
 conv_template_map = {}
 
@@ -123,7 +127,7 @@ async def check_api_key(
 
 
 def create_error_response(code: int, message: str) -> JSONResponse:
-    print(message)
+    logger.info(message)
     return JSONResponse(
         ErrorResponse(message=message, code=code).dict(), status_code=400
     )
@@ -392,7 +396,7 @@ class MyStreamingResponse(StreamingResponse):
         while True:
             message = await receive()
             if message["type"] == "http.disconnect":
-                print(f"{message=}")
+                logger.info(f"{message=}")
                 await self.callback()
                 break
 
@@ -454,7 +458,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
                 i -= 1
             messages[idx]['content'] = (begin + end).replace("\n\n", "\n")
             # messages[i]['content'] = content[:100] + "..." + content[-100:]
-            # print(f"compacted={messages[i]['content']}")
+            # logger.info(f"compacted={messages[i]['content']}")
             
     # if len(messages) > 6:
     #     messages.insert(len(messages) - 1, {"role": "user", "content": "상기 대화 보다는 맨앞 운세 자료를 기반으로 아래 질문에 답변해."})
@@ -465,7 +469,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         # messages[-1]["content"] += "(내 운명이 걸린 일이니 위 사주를 분석하여 답변하세요)"
         
 
-    print(f"{request.max_tokens=}")
+    logger.info(f"{request.max_tokens=}")
     request.messages = messages
     max_tokens = request.max_tokens
     if not request.max_tokens:
@@ -484,7 +488,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         input_length = await get_token_length(
             request, gen_params["prompt"], worker_addr
         )
-        print(f"{input_length=}\n{max_tokens=}\n{len(messages)=}")
+        logger.info(f"{input_length=}\n{max_tokens=}\n{len(messages)=}")
         if input_length + max_tokens > context_length:
             if len(messages) == 2:
                 return create_error_response(
@@ -516,10 +520,10 @@ async def create_chat_completion(request: ChatCompletionRequest):
     )
 
     # print(messages)
-    print(gen_params["prompt"])
-    print(f"after calc {max_tokens=} {input_length=} {context_length=}")
-    print(f"max_new_tokens={gen_params['max_new_tokens']}")
-    print(f"{request.temperature=}, {request.top_p=}")
+    # logger.info(gen_params["prompt"])
+    logger.info(f"after calc {max_tokens=} {input_length=} {context_length=}")
+    logger.info(f"max_new_tokens={gen_params['max_new_tokens']}")
+    logger.info(f"{request.temperature=}, {request.top_p=}")
 
     conv_file_path = None
     user_id = ""
@@ -534,7 +538,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         conv_file_path = os.path.join(newpath, file_name)
         with open(conv_file_path, "w") as f:
             f.write(full_conv)
-    print(f"{user_id=}")
+    logger.info(f"{user_id=}")
     # end lcw
 
     error_check_ret = await check_length(
@@ -560,7 +564,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
         async def callback():
             await client.aclose()
-            print("client closed")
+            logger.info("client closed")
 
         res = MyStreamingResponse(
             generator, media_type="text/event-stream", callback=callback
@@ -631,7 +635,7 @@ async def chat_completion_stream_generator(
                 yield "data: [DONE]\n\n"
 
                 # lcw
-                print(f"[DONE ERROR]: {content}")  # lcw
+                logger.info(f"[DONE ERROR]: {content}")  # lcw
                 if conv_file_path:
                     data = {"role": "assistant", "content": assistant}
                     with open(conv_file_path, "a") as f:
@@ -644,7 +648,7 @@ async def chat_completion_stream_generator(
                 if len(decoded_unicode) > len(previous_text)
                 else previous_text
             )
-            # print("." + delta_text, end="", flush=True)   # lcw
+            # logger.info("." + delta_text, end="", flush=True)   # lcw
             assistant += delta_text
             if len(delta_text) == 0:
                 delta_text = None
@@ -661,7 +665,7 @@ async def chat_completion_stream_generator(
                     finish_stream_events.append(chunk)
                 continue
             data = f"data: {chunk.json(exclude_unset=False, ensure_ascii=False)}\n\n"
-            # print(data)
+            # logger.info(data)
             yield data
     # There is not "content" field in the last delta message, so exclude_none to exclude field "content".
     for finish_chunk in finish_stream_events:
@@ -670,8 +674,8 @@ async def chat_completion_stream_generator(
     # lcw
     prompt = gen_params["prompt"]
     q = prompt.splitlines()[-2]
-    print(colored(f"\n{q}", on_color="on_green"))
-    print(f"A: {assistant.strip()}")
+    logger.info(colored(f"\n{q}", on_color="on_green"))
+    logger.info(f"A: {assistant.strip()}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
         with open(conv_file_path, "a") as f:
