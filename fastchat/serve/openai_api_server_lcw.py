@@ -520,7 +520,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     )
 
     # print(messages)
-    # logger.info(gen_params["prompt"])
+    print(gen_params["prompt"])
     logger.info(f"after calc {max_tokens=} {input_length=} {context_length=}")
     logger.info(f"max_new_tokens={gen_params['max_new_tokens']}")
     logger.info(f"{request.temperature=}, {request.top_p=}")

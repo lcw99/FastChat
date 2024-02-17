@@ -279,7 +279,7 @@ def generate_stream(
     #lcw
     duration = time.time() - start
     tps = round(i / duration, 2)
-    print(f"token = {i}, duration = {int(duration)}, tps = {tps}")
+    print(f"token = {i}, duration = {int(duration)}, tps = {tps}, fr = {finish_reason}")
 
     yield {
         "text": output,
