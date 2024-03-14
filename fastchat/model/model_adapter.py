@@ -1654,10 +1654,41 @@ class Llama2ChangAdapter(Llama2Adapter):
     """The model adapter for Llama2-ko-chang (e.g., lcw99/llama2-ko-chang-instruct-chat)"""
 
     def match(self, model_path: str):
-        return "llama2-ko-chang" in model_path.lower() or "solar" in model_path.lower()
+        return "llama2-ko-chang" in model_path.lower() or "open-solar" or "gemma" in model_path.lower()
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
+        print("loading polyglot_changgpt...")
         return get_conv_template("polyglot_changgpt")
+    
+    def load_compress_model(self, model_path, device, torch_dtype, revision="main"):
+        print("loading compressed model...")
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="fp4",
+            bnb_4bit_compute_dtype=torch.float16
+        )
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            use_fast=self.use_fast_tokenizer,
+            revision=revision,
+            trust_remote_code=True,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path, 
+            quantization_config=bnb_config
+        )
+        return model, tokenizer
+
+class YanoljaAdapter(Llama2Adapter):
+    """The model adapter for solar-yanolja"""
+
+    def match(self, model_path: str):
+        return "yanolja" in model_path.lower()
+
+    def get_default_conv_template(self, model_path: str) -> Conversation:
+        print("\n\n....loading yanolja_changgpt....")
+        return get_conv_template("yanolja_changgpt")
     
     def load_compress_model(self, model_path, device, torch_dtype, revision="main"):
         print("loading compressed model...")
@@ -1832,6 +1863,7 @@ register_model_adapter(ZephyrAdapter)
 register_model_adapter(XwinLMAdapter)
 register_model_adapter(ZephyrChangAdapter)
 register_model_adapter(PhikoChangAdapter)
+register_model_adapter(YanoljaAdapter)
 
 # After all adapters, try the default base adapter.
 register_model_adapter(BaseModelAdapter)

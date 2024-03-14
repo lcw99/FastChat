@@ -40,9 +40,26 @@ from fastchat.modules.gptq import GptqConfig
 from fastchat.modules.exllama import ExllamaConfig
 from fastchat.utils import is_partial_stop, is_sentence_complete, get_context_length
 
+# lcw
+from transformers import LogitsProcessor
+
+class PromptFocusedLogitsProcessor(LogitsProcessor):
+    def __init__(self, prompt_token_ids, focus_factor=1.0):
+        self.prompt_token_ids = set(prompt_token_ids)
+        self.focus_factor = focus_factor
+
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
+        # Create a mask to identify prompt tokens
+        prompt_mask = torch.ones_like(scores, dtype=torch.float)
+        prompt_mask[:, list(self.prompt_token_ids)] = self.focus_factor
+
+        # Multiply the scores of prompt tokens
+        scores = scores * prompt_mask
+
+        return scores
 
 def prepare_logits_processor(
-    temperature: float, repetition_penalty: float, top_p: float, top_k: int
+    temperature: float, repetition_penalty: float, top_p: float, top_k: int, prompt_token_ids
 ) -> LogitsProcessorList:
     processor_list = LogitsProcessorList()
     # TemperatureLogitsWarper doesn't accept 0.0, 1.0 makes it a no-op so we skip two cases.
@@ -54,6 +71,10 @@ def prepare_logits_processor(
         processor_list.append(TopPLogitsWarper(top_p))
     if top_k > 0:
         processor_list.append(TopKLogitsWarper(top_k))
+    # lcw
+    # if prompt_token_ids is not None:
+    #     processor_list.append(PromptFocusedLogitsProcessor(prompt_token_ids, 1.01))
+    
     return processor_list
 
 
@@ -84,10 +105,11 @@ def generate_stream(
     if tokenizer.eos_token_id not in stop_token_ids:
         stop_token_ids.append(tokenizer.eos_token_id)
 
-    logits_processor = prepare_logits_processor(
-        temperature, repetition_penalty, top_p, top_k
-    )
     input_ids = tokenizer(prompt).input_ids
+    logits_processor = prepare_logits_processor(
+        temperature, repetition_penalty, top_p, top_k, 
+        input_ids
+    )
 
     if model.config.is_encoder_decoder:
         max_src_len = context_len
