@@ -428,7 +428,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     # lcw
     MAX_NUM_MESSAGES = 12
-    MAX_CONTEXT_LENGTH = 3500
+    MAX_CONTEXT_LENGTH = 5000
 
     full_conv = "\n".join([json.dumps(m, ensure_ascii=False) for m in request.messages])
     # for entry in request.messages:

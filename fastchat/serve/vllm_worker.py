@@ -126,6 +126,10 @@ class VLLMWorker(BaseModelWorker):
                 ]
             else:
                 text_outputs = [output.text for output in request_output.outputs]
+
+            # lcw
+            # print(text_outputs)
+            
             text_outputs = " ".join(text_outputs)
 
             partial_stop = any(is_partial_stop(text_outputs, i) for i in stop)
