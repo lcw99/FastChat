@@ -32,3 +32,4 @@ build
 
 localtools/
 *.sh
+!vllm_worker_to_aws_n_gpu.sh
