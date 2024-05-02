@@ -861,44 +861,6 @@ register_conv_template(
     )
 )
 
-# Perplexity AI template
-register_conv_template(
-    Conversation(
-        name="pplxai",
-        system_message="Be precise and concise.",
-        roles=("user", "assistant"),
-        sep_style=SeparatorStyle.DEFAULT,
-        sep=None,
-    )
-)
-
-register_conv_template(
-    Conversation(
-        name="gpt-4-turbo-2024-04-09",
-        system_message=(
-            "You are ChatGPT, a large language model trained by OpenAI, based on the GPT-4 architecture.\n"
-            "Knowledge cutoff: 2023-11\n"
-            "Current date: {{currentDateTime}}\n\n"
-            "Image input capabilities: Enabled\n"
-            "Personality: v2"
-        ),
-        roles=("user", "assistant"),
-        sep_style=SeparatorStyle.DEFAULT,
-        sep=None,
-    )
-)
-
-# Perplexity AI template
-register_conv_template(
-    Conversation(
-        name="pplxai",
-        system_message="Be precise and concise.",
-        roles=("user", "assistant"),
-        sep_style=SeparatorStyle.DEFAULT,
-        sep=None,
-    )
-)
-
 # Claude default template
 register_conv_template(
     Conversation(
