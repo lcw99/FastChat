@@ -2042,7 +2042,7 @@ class Llama2ChangAdapter(Llama2Adapter):
     """The model adapter for Llama2-ko-chang (e.g., lcw99/llama2-ko-chang-instruct-chat)"""
 
     def match(self, model_path: str):
-        return "llama2-ko-chang" in model_path.lower() or "open-solar" or "gemma" in model_path.lower()
+        return "chang" in model_path.lower() or "saju" in model_path.lower()
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
         print("loading polyglot_changgpt...")
