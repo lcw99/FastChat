@@ -5,6 +5,7 @@ The gradio demo server for chatting with a single model.
 import argparse
 from collections import defaultdict
 import datetime
+import hashlib
 import json
 import os
 import random
@@ -14,71 +15,86 @@ import uuid
 import gradio as gr
 import requests
 
-from fastchat.conversation import SeparatorStyle
 from fastchat.constants import (
     LOGDIR,
     WORKER_API_TIMEOUT,
     ErrorCode,
     MODERATION_MSG,
     CONVERSATION_LIMIT_MSG,
+    RATE_LIMIT_MSG,
     SERVER_ERROR_MSG,
-    INACTIVE_MSG,
     INPUT_CHAR_LEN_LIMIT,
     CONVERSATION_TURN_LIMIT,
     SESSION_EXPIRATION_TIME,
 )
-from fastchat.model.model_adapter import get_conversation_template
-from fastchat.model.model_registry import get_model_info, model_info
-from fastchat.serve.api_provider import (
-    anthropic_api_stream_iter,
-    openai_api_stream_iter,
-    palm_api_stream_iter,
-    init_palm_chat,
+from fastchat.model.model_adapter import (
+    get_conversation_template,
 )
+from fastchat.model.model_registry import get_model_info, model_info
+from fastchat.serve.api_provider import get_api_provider_stream_iter
+from fastchat.serve.remote_logger import get_remote_logger
 from fastchat.utils import (
     build_logger,
-    violates_moderation,
     get_window_url_params_js,
     get_window_url_params_with_tos_js,
+    moderation_filter,
     parse_gradio_auth_creds,
+    load_image,
 )
-
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
 headers = {"User-Agent": "FastChat Client"}
 
-no_change_btn = gr.Button.update()
-enable_btn = gr.Button.update(interactive=True, visible=True)
-disable_btn = gr.Button.update(interactive=False)
-invisible_btn = gr.Button.update(interactive=False, visible=False)
+no_change_btn = gr.Button()
+enable_btn = gr.Button(interactive=True, visible=True)
+disable_btn = gr.Button(interactive=False)
+invisible_btn = gr.Button(interactive=False, visible=False)
 
 controller_url = None
 enable_moderation = False
+use_remote_storage = False
 
 acknowledgment_md = """
+### Terms of Service
+
+Users are required to agree to the following terms before using the service:
+
+The service is a research preview. It only provides limited safety measures and may generate offensive content.
+It must not be used for any illegal, harmful, violent, racist, or sexual purposes.
+Please do not upload any private information.
+The service collects user dialogue data, including both text and images, and reserves the right to distribute it under a Creative Commons Attribution (CC-BY) or a similar license.
+
 ### Acknowledgment
-<div class="image-container">
-    <p> We thank <a href="https://www.kaggle.com/" target="_blank">Kaggle</a>, <a href="https://mbzuai.ac.ae/" target="_blank">MBZUAI</a>, <a href="https://www.anyscale.com/" target="_blank">AnyScale</a>, and <a href="https://huggingface.co/" target="_blank">HuggingFace</a> for their <a href="https://lmsys.org/donations/" target="_blank">sponsorship</a>. </p>
-    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Kaggle_logo.png/400px-Kaggle_logo.png" alt="Image 1">
-    <img src="https://mma.prnewswire.com/media/1227419/MBZUAI_Logo.jpg?p=facebookg" alt="Image 2">
-    <img src="https://docs.anyscale.com/site-assets/logo.png" alt="Image 3">
-    <img src="https://huggingface.co/datasets/huggingface/brand-assets/resolve/main/hf-logo-with-title.png" alt="Image 4">
+We thank [UC Berkeley SkyLab](https://sky.cs.berkeley.edu/), [Kaggle](https://www.kaggle.com/), [MBZUAI](https://mbzuai.ac.ae/), [a16z](https://www.a16z.com/), [Together AI](https://www.together.ai/), [Hyperbolic](https://hyperbolic.xyz/), [Anyscale](https://www.anyscale.com/), [HuggingFace](https://huggingface.co/) for their generous [sponsorship](https://lmsys.org/donations/).
+
+<div class="sponsor-image-about">
+    <img src="https://storage.googleapis.com/public-arena-asset/skylab.png" alt="SkyLab">
+    <img src="https://storage.googleapis.com/public-arena-asset/kaggle.png" alt="Kaggle">
+    <img src="https://storage.googleapis.com/public-arena-asset/mbzuai.jpeg" alt="MBZUAI">
+    <img src="https://storage.googleapis.com/public-arena-asset/a16z.jpeg" alt="a16z">
+    <img src="https://storage.googleapis.com/public-arena-asset/together.png" alt="Together AI">
+    <img src="https://storage.googleapis.com/public-arena-asset/hyperbolic_logo.png" alt="Hyperbolic">
+    <img src="https://storage.googleapis.com/public-arena-asset/anyscale.png" alt="AnyScale">
+    <img src="https://storage.googleapis.com/public-arena-asset/huggingface.png" alt="HuggingFace">
 </div>
 """
 
-ip_expiration_dict = defaultdict(lambda: 0)
-
-# Information about custom OpenAI compatible API models.
-# JSON file format:
+# JSON file format of API-based models:
 # {
-#     "vicuna-7b": {
-#         "model_name": "vicuna-7b-v1.5",
-#         "api_base": "http://8.8.8.55:5555/v1",
-#         "api_key": "password"
-#     },
+#   "gpt-3.5-turbo": {
+#     "model_name": "gpt-3.5-turbo",
+#     "api_type": "openai",
+#     "api_base": "https://api.openai.com/v1",
+#     "api_key": "sk-******",
+#     "anony_only": false
+#   }
 # }
-openai_compatible_models_info = {}
+#
+#  - "api_type" can be one of the following: openai, anthropic, gemini, or mistral. For custom APIs, add a new type and implement it accordingly.
+#  - "anony_only" indicates whether to display this model in anonymous mode only.
+
+api_endpoint_info = {}
 
 
 class State:
@@ -87,11 +103,20 @@ class State:
         self.conv_id = uuid.uuid4().hex
         self.skip_next = False
         self.model_name = model_name
+        self.oai_thread_id = None
 
-        if model_name == "palm-2":
-            # According to release note, "chat-bison@001" is PaLM 2 for chat.
-            # https://cloud.google.com/vertex-ai/docs/release-notes#May_10_2023
-            self.palm_chat = init_palm_chat("chat-bison@001")
+        self.regen_support = True
+        if "browsing" in model_name:
+            self.regen_support = False
+        self.init_system_prompt(self.conv)
+
+    def init_system_prompt(self, conv):
+        system_prompt = conv.get_system_message()
+        if len(system_prompt) == 0:
+            return
+        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        system_prompt = system_prompt.replace("{{currentDateTime}}", current_date)
+        conv.set_system_message(system_prompt)
 
     def to_gradio_chatbot(self):
         return self.conv.to_gradio_chatbot()
@@ -107,10 +132,11 @@ class State:
         return base
 
 
-def set_global_vars(controller_url_, enable_moderation_):
-    global controller_url, enable_moderation
+def set_global_vars(controller_url_, enable_moderation_, use_remote_storage_):
+    global controller_url, enable_moderation, use_remote_storage
     controller_url = controller_url_
     enable_moderation = enable_moderation_
+    use_remote_storage = use_remote_storage_
 
 
 def get_conv_log_filename():
@@ -119,37 +145,50 @@ def get_conv_log_filename():
     return name
 
 
-def get_model_list(
-    controller_url, register_openai_compatible_models, add_chatgpt, add_claude, add_palm
-):
+def get_model_list(controller_url, register_api_endpoint_file, multimodal):
+    global api_endpoint_info
+
+    # Add models from the controller
     if controller_url:
         ret = requests.post(controller_url + "/refresh_all_workers")
         assert ret.status_code == 200
-        ret = requests.post(controller_url + "/list_models")
-        models = ret.json()["models"]
+
+        if multimodal:
+            ret = requests.post(controller_url + "/list_multimodal_models")
+            models = ret.json()["models"]
+        else:
+            ret = requests.post(controller_url + "/list_language_models")
+            models = ret.json()["models"]
     else:
         models = []
 
-    # Add API providers
-    if register_openai_compatible_models:
-        global openai_compatible_models_info
-        openai_compatible_models_info = json.load(
-            open(register_openai_compatible_models)
-        )
-        models += list(openai_compatible_models_info.keys())
+    # Add models from the API providers
+    if register_api_endpoint_file:
+        api_endpoint_info = json.load(open(register_api_endpoint_file))
+        for mdl, mdl_dict in api_endpoint_info.items():
+            mdl_multimodal = mdl_dict.get("multimodal", False)
+            if multimodal and mdl_multimodal:
+                models += [mdl]
+            elif not multimodal and not mdl_multimodal:
+                models += [mdl]
 
-    if add_chatgpt:
-        models += ["gpt-3.5-turbo", "gpt-4"]
-    if add_claude:
-        models += ["claude-2", "claude-instant-1"]
-    if add_palm:
-        models += ["palm-2"]
+    # Remove anonymous models
     models = list(set(models))
+    visible_models = models.copy()
+    for mdl in models:
+        if mdl not in api_endpoint_info:
+            continue
+        mdl_dict = api_endpoint_info[mdl]
+        if mdl_dict["anony_only"]:
+            visible_models.remove(mdl)
 
-    priority = {k: f"___{i:02d}" for i, k in enumerate(model_info)}
+    # Sort models and add descriptions
+    priority = {k: f"___{i:03d}" for i, k in enumerate(model_info)}
     models.sort(key=lambda x: priority.get(x, x))
-    logger.info(f"Models: {models}")
-    return models
+    visible_models.sort(key=lambda x: priority.get(x, x))
+    logger.info(f"All models: {models}")
+    logger.info(f"Visible models: {visible_models}")
+    return visible_models, models
 
 
 def load_demo_single(models, url_params):
@@ -159,10 +198,7 @@ def load_demo_single(models, url_params):
         if model in models:
             selected_model = model
 
-    dropdown_update = gr.Dropdown.update(
-        choices=models, value=selected_model, visible=True
-    )
-
+    dropdown_update = gr.Dropdown(choices=models, value=selected_model, visible=True)
     state = None
     return state, dropdown_update
 
@@ -170,66 +206,99 @@ def load_demo_single(models, url_params):
 def load_demo(url_params, request: gr.Request):
     global models
 
-    ip = request.client.host
+    ip = get_ip(request)
     logger.info(f"load_demo. ip: {ip}. params: {url_params}")
-    ip_expiration_dict[ip] = time.time() + SESSION_EXPIRATION_TIME
 
     if args.model_list_mode == "reload":
-        models = get_model_list(
-            controller_url,
-            args.register_openai_compatible_models,
-            args.add_chatgpt,
-            args.add_claude,
-            args.add_palm,
+        models, all_models = get_model_list(
+            controller_url, args.register_api_endpoint_file, False
         )
 
     return load_demo_single(models, url_params)
 
 
 def vote_last_response(state, vote_type, model_selector, request: gr.Request):
-    with open(get_conv_log_filename(), "a") as fout:
+    filename = get_conv_log_filename()
+    if "llava" in model_selector:
+        filename = filename.replace("2024", "vision-tmp-2024")
+
+    with open(filename, "a") as fout:
         data = {
             "tstamp": round(time.time(), 4),
             "type": vote_type,
             "model": model_selector,
             "state": state.dict(),
-            "ip": request.client.host,
+            "ip": get_ip(request),
         }
         fout.write(json.dumps(data) + "\n")
+    get_remote_logger().log(data)
 
 
 def upvote_last_response(state, model_selector, request: gr.Request):
-    logger.info(f"upvote. ip: {request.client.host}")
+    ip = get_ip(request)
+    logger.info(f"upvote. ip: {ip}")
     vote_last_response(state, "upvote", model_selector, request)
     return ("",) + (disable_btn,) * 3
 
 
 def downvote_last_response(state, model_selector, request: gr.Request):
-    logger.info(f"downvote. ip: {request.client.host}")
+    ip = get_ip(request)
+    logger.info(f"downvote. ip: {ip}")
     vote_last_response(state, "downvote", model_selector, request)
     return ("",) + (disable_btn,) * 3
 
 
 def flag_last_response(state, model_selector, request: gr.Request):
-    logger.info(f"flag. ip: {request.client.host}")
+    ip = get_ip(request)
+    logger.info(f"flag. ip: {ip}")
     vote_last_response(state, "flag", model_selector, request)
     return ("",) + (disable_btn,) * 3
 
 
 def regenerate(state, request: gr.Request):
-    logger.info(f"regenerate. ip: {request.client.host}")
+    ip = get_ip(request)
+    logger.info(f"regenerate. ip: {ip}")
+    if not state.regen_support:
+        state.skip_next = True
+        return (state, state.to_gradio_chatbot(), "", None) + (no_change_btn,) * 5
     state.conv.update_last_message(None)
-    return (state, state.to_gradio_chatbot(), "") + (disable_btn,) * 5
+    return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 5
 
 
 def clear_history(request: gr.Request):
-    logger.info(f"clear_history. ip: {request.client.host}")
+    ip = get_ip(request)
+    logger.info(f"clear_history. ip: {ip}")
     state = None
-    return (state, [], "") + (disable_btn,) * 5
+    return (state, [], "", None) + (disable_btn,) * 5
 
 
-def add_text(state, model_selector, text, request: gr.Request):
-    ip = request.client.host
+def get_ip(request: gr.Request):
+    if "cf-connecting-ip" in request.headers:
+        ip = request.headers["cf-connecting-ip"]
+    elif "x-forwarded-for" in request.headers:
+        ip = request.headers["x-forwarded-for"]
+    else:
+        ip = request.client.host
+    return ip
+
+
+def _prepare_text_with_image(state, text, image):
+    if image is not None:
+        if len(state.conv.get_images()) > 0:
+            # reset convo with new image
+            state.conv = get_conversation_template(state.model_name)
+
+        image = state.conv.convert_image_to_base64(
+            image
+        )  # PIL type is not JSON serializable
+
+        text = text, [image]
+
+    return text
+
+
+def add_text(state, model_selector, text, image, request: gr.Request):
+    ip = get_ip(request)
     logger.info(f"add_text. ip: {ip}. len: {len(text)}")
 
     if state is None:
@@ -237,45 +306,29 @@ def add_text(state, model_selector, text, request: gr.Request):
 
     if len(text) <= 0:
         state.skip_next = True
-        return (state, state.to_gradio_chatbot(), "") + (no_change_btn,) * 5
+        return (state, state.to_gradio_chatbot(), "", None) + (no_change_btn,) * 5
 
-    if ip_expiration_dict[ip] < time.time():
-        logger.info(f"inactive. ip: {request.client.host}. text: {text}")
+    all_conv_text = state.conv.get_prompt()
+    all_conv_text = all_conv_text[-2000:] + "\nuser: " + text
+    flagged = moderation_filter(all_conv_text, [state.model_name])
+    # flagged = moderation_filter(text, [state.model_name])
+    if flagged:
+        logger.info(f"violate moderation. ip: {ip}. text: {text}")
+        # overwrite the original text
+        text = MODERATION_MSG
+
+    if (len(state.conv.messages) - state.conv.offset) // 2 >= CONVERSATION_TURN_LIMIT:
+        logger.info(f"conversation turn limit. ip: {ip}. text: {text}")
         state.skip_next = True
-        return (state, state.to_gradio_chatbot(), INACTIVE_MSG) + (no_change_btn,) * 5
-
-    if enable_moderation:
-        flagged = violates_moderation(text)
-        if flagged:
-            logger.info(f"violate moderation. ip: {request.client.host}. text: {text}")
-            state.skip_next = True
-            return (state, state.to_gradio_chatbot(), MODERATION_MSG) + (
-                no_change_btn,
-            ) * 5
-
-    conv = state.conv
-    if (len(conv.messages) - conv.offset) // 2 >= CONVERSATION_TURN_LIMIT:
-        logger.info(f"conversation turn limit. ip: {request.client.host}. text: {text}")
-        state.skip_next = True
-        return (state, state.to_gradio_chatbot(), CONVERSATION_LIMIT_MSG) + (
+        return (state, state.to_gradio_chatbot(), CONVERSATION_LIMIT_MSG, None) + (
             no_change_btn,
         ) * 5
 
     text = text[:INPUT_CHAR_LEN_LIMIT]  # Hard cut-off
-    conv.append_message(conv.roles[0], text)
-    conv.append_message(conv.roles[1], None)
-    return (state, state.to_gradio_chatbot(), "") + (disable_btn,) * 5
-
-
-def post_process_code(code):
-    sep = "\n```"
-    if sep in code:
-        blocks = code.split(sep)
-        if len(blocks) % 2 == 1:
-            for i in range(1, len(blocks), 2):
-                blocks[i] = blocks[i].replace("\\_", "_")
-        code = sep.join(blocks)
-    return code
+    text = _prepare_text_with_image(state, text, image)
+    state.conv.append_message(state.conv.roles[0], text)
+    state.conv.append_message(state.conv.roles[1], None)
+    return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 5
 
 
 def model_worker_stream_iter(
@@ -287,6 +340,7 @@ def model_worker_stream_iter(
     repetition_penalty,
     top_p,
     max_new_tokens,
+    images,
 ):
     # Make requests
     gen_params = {
@@ -300,7 +354,11 @@ def model_worker_stream_iter(
         "stop_token_ids": conv.stop_token_ids,
         "echo": False,
     }
+
     logger.info(f"==== request ====\n{gen_params}")
+
+    if len(images) > 0:
+        gen_params["images"] = images
 
     # Stream output
     response = requests.post(
@@ -316,8 +374,49 @@ def model_worker_stream_iter(
             yield data
 
 
-def bot_response(state, temperature, top_p, max_new_tokens, request: gr.Request):
-    logger.info(f"bot_response. ip: {request.client.host}")
+def is_limit_reached(model_name, ip):
+    monitor_url = "http://localhost:9090"
+    try:
+        ret = requests.get(
+            f"{monitor_url}/is_limit_reached?model={model_name}&user_id={ip}", timeout=1
+        )
+        obj = ret.json()
+        return obj
+    except Exception as e:
+        logger.info(f"monitor error: {e}")
+        return None
+
+
+def upload_image_file_to_gcs(image, filename):
+    from google.cloud import storage
+    import io
+
+    storage_client = storage.Client()
+    # upload file to GCS
+    bucket = storage_client.get_bucket("arena_user_content")
+
+    blob = bucket.blob(f"{filename}")
+    if not blob.exists():
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        blob.upload_from_file(buffer, content_type="image/png")
+
+    blob.make_public()
+    return blob.public_url
+
+
+def bot_response(
+    state,
+    temperature,
+    top_p,
+    max_new_tokens,
+    request: gr.Request,
+    apply_rate_limit=True,
+    use_recommended_config=False,
+):
+    ip = get_ip(request)
+    logger.info(f"bot_response. ip: {ip}")
     start_tstamp = time.time()
     temperature = float(temperature)
     top_p = float(top_p)
@@ -329,34 +428,22 @@ def bot_response(state, temperature, top_p, max_new_tokens, request: gr.Request)
         yield (state, state.to_gradio_chatbot()) + (no_change_btn,) * 5
         return
 
+    if apply_rate_limit:
+        ret = is_limit_reached(state.model_name, ip)
+        if ret is not None and ret["is_limit_reached"]:
+            error_msg = RATE_LIMIT_MSG + "\n\n" + ret["reason"]
+            logger.info(f"rate limit reached. ip: {ip}. error_msg: {ret['reason']}")
+            state.conv.update_last_message(error_msg)
+            yield (state, state.to_gradio_chatbot()) + (no_change_btn,) * 5
+            return
+
     conv, model_name = state.conv, state.model_name
-    if model_name == "gpt-3.5-turbo" or model_name == "gpt-4":
-        prompt = conv.to_openai_api_messages()
-        stream_iter = openai_api_stream_iter(
-            model_name, prompt, temperature, top_p, max_new_tokens
-        )
-    elif model_name == "claude-2" or model_name == "claude-instant-1":
-        prompt = conv.get_prompt()
-        stream_iter = anthropic_api_stream_iter(
-            model_name, prompt, temperature, top_p, max_new_tokens
-        )
-    elif model_name == "palm-2":
-        stream_iter = palm_api_stream_iter(
-            state.palm_chat, conv.messages[-2][1], temperature, top_p, max_new_tokens
-        )
-    elif model_name in openai_compatible_models_info:
-        model_info = openai_compatible_models_info[model_name]
-        prompt = conv.to_openai_api_messages()
-        stream_iter = openai_api_stream_iter(
-            model_info["model_name"],
-            prompt,
-            temperature,
-            top_p,
-            max_new_tokens,
-            api_base=model_info["api_base"],
-            api_key=model_info["api_key"],
-        )
-    else:
+    model_api_dict = (
+        api_endpoint_info[model_name] if model_name in api_endpoint_info else None
+    )
+    images = conv.get_images()
+
+    if model_api_dict is None:
         # Query worker address
         ret = requests.post(
             controller_url + "/get_worker_address", json={"model": model_name}
@@ -397,18 +484,41 @@ def bot_response(state, temperature, top_p, max_new_tokens, request: gr.Request)
             repetition_penalty,
             top_p,
             max_new_tokens,
+            images,
+        )
+    else:
+        if use_recommended_config:
+            recommended_config = model_api_dict.get("recommended_config", None)
+            if recommended_config is not None:
+                temperature = recommended_config.get("temperature", temperature)
+                top_p = recommended_config.get("top_p", top_p)
+                max_new_tokens = recommended_config.get(
+                    "max_new_tokens", max_new_tokens
+                )
+
+        stream_iter = get_api_provider_stream_iter(
+            conv,
+            model_name,
+            model_api_dict,
+            temperature,
+            top_p,
+            max_new_tokens,
+            state,
         )
 
-    conv.update_last_message("▌")
+    html_code = ' <span class="cursor"></span> '
+
+    # conv.update_last_message("▌")
+    conv.update_last_message(html_code)
     yield (state, state.to_gradio_chatbot()) + (disable_btn,) * 5
 
     try:
+        data = {"text": ""}
         for i, data in enumerate(stream_iter):
             if data["error_code"] == 0:
-                if i % 8 != 0:  # reduce gradio's overhead
-                    continue
                 output = data["text"].strip()
-                conv.update_last_message(output + "▌")
+                # conv.update_last_message(output + "▌")
+                conv.update_last_message(output + html_code)
                 yield (state, state.to_gradio_chatbot()) + (disable_btn,) * 5
             else:
                 output = data["text"] + f"\n\n(error_code: {data['error_code']})"
@@ -422,8 +532,6 @@ def bot_response(state, temperature, top_p, max_new_tokens, request: gr.Request)
                 )
                 return
         output = data["text"].strip()
-        if "vicuna" in model_name:
-            output = post_process_code(output)
         conv.update_last_message(output)
         yield (state, state.to_gradio_chatbot()) + (enable_btn,) * 5
     except requests.exceptions.RequestException as e:
@@ -456,7 +564,33 @@ def bot_response(state, temperature, top_p, max_new_tokens, request: gr.Request)
     finish_tstamp = time.time()
     logger.info(f"{output}")
 
-    with open(get_conv_log_filename(), "a") as fout:
+    # We load the image because gradio accepts base64 but that increases file size by ~1.33x
+    loaded_images = [load_image(image) for image in images]
+    images_hash = [hashlib.md5(image.tobytes()).hexdigest() for image in loaded_images]
+    image_filenames = []
+    for image, hash_str in zip(loaded_images, images_hash):
+        t = datetime.datetime.now()
+        filename = os.path.join(
+            "serve_images",
+            f"{hash_str}.jpg",
+        )
+
+        if use_remote_storage:
+            image_url = upload_image_file_to_gcs(image, filename)
+            image_filenames.append(image_url)
+        else:
+            filename = os.path.join(LOGDIR, filename)
+            if not os.path.isfile(filename):
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+                image.save(filename)
+
+            image_filenames.append(hash_str)
+
+    filename = get_conv_log_filename()
+    if "llava" in model_name:
+        filename = filename.replace("2024", "vision-tmp-2024")
+
+    with open(filename, "a") as fout:
         data = {
             "tstamp": round(finish_tstamp, 4),
             "type": "chat",
@@ -469,14 +603,16 @@ def bot_response(state, temperature, top_p, max_new_tokens, request: gr.Request)
             "start": round(start_tstamp, 4),
             "finish": round(finish_tstamp, 4),
             "state": state.dict(),
-            "ip": request.client.host,
+            "ip": get_ip(request),
+            "images": image_filenames,
         }
         fout.write(json.dumps(data) + "\n")
+    get_remote_logger().log(data)
 
 
 block_css = """
-#notice_markdown {
-    font-size: 104%
+#notice_markdown .prose {
+    font-size: 110% !important;
 }
 #notice_markdown th {
     display: none;
@@ -485,8 +621,17 @@ block_css = """
     padding-top: 6px;
     padding-bottom: 6px;
 }
-#leaderboard_markdown {
-    font-size: 104%
+#arena_leaderboard_dataframe table {
+    font-size: 110%;
+}
+#full_leaderboard_dataframe table {
+    font-size: 110%;
+}
+#model_description_markdown {
+    font-size: 110% !important;
+}
+#leaderboard_markdown .prose {
+    font-size: 110% !important;
 }
 #leaderboard_markdown td {
     padding-top: 6px;
@@ -495,22 +640,68 @@ block_css = """
 #leaderboard_dataframe td {
     line-height: 0.1em;
 }
-#input_box textarea {
+#about_markdown .prose {
+    font-size: 110% !important;
 }
-footer {
-    display:none !important
+#ack_markdown .prose {
+    font-size: 110% !important;
 }
-.image-container {
-    display: flex;
-    align-items: center;
-    padding: 1px;
+#chatbot .prose {
+    font-size: 105% !important;
 }
-.image-container img {
-    margin: 0 30px;
-    height: 20px;
+.sponsor-image-about img {
+    margin: 0 20px;
+    margin-top: 20px;
+    height: 40px;
     max-height: 100%;
     width: auto;
-    max-width: 20%;
+    float: left;
+}
+
+.chatbot h1, h2, h3 {
+    margin-top: 8px; /* Adjust the value as needed */
+    margin-bottom: 0px; /* Adjust the value as needed */
+    padding-bottom: 0px;
+}
+
+.chatbot h1 {
+    font-size: 130%;
+}
+.chatbot h2 {
+    font-size: 120%;
+}
+.chatbot h3 {
+    font-size: 110%;
+}
+.chatbot p:not(:first-child) {
+    margin-top: 8px;
+}
+
+.typing {
+    display: inline-block;
+}
+
+.cursor {
+    display: inline-block;
+    width: 7px;
+    height: 1em;
+    background-color: black;
+    vertical-align: middle;
+    animation: blink 1s infinite;
+}
+
+.dark .cursor {
+    display: inline-block;
+    width: 7px;
+    height: 1em;
+    background-color: white;
+    vertical-align: middle;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    50.1%, 100% { opacity: 0; }
 }
 """
 
@@ -538,12 +729,53 @@ def get_model_description_md(models):
     return model_description_md
 
 
+def build_about():
+    about_markdown = """
+# About Us
+Chatbot Arena is an open-source research project developed by members from [LMSYS](https://lmsys.org) and UC Berkeley [SkyLab](https://sky.cs.berkeley.edu/). Our mission is to build an open platform to evaluate LLMs by human preference in the real-world.
+We open-source our [FastChat](https://github.com/lm-sys/FastChat) project at GitHub and release chat and human feedback dataset. We invite everyone to join us!
+
+## Arena Core Team
+- [Lianmin Zheng](https://lmzheng.net/) (co-lead), [Wei-Lin Chiang](https://infwinston.github.io/) (co-lead), [Ying Sheng](https://sites.google.com/view/yingsheng/home), [Joseph E. Gonzalez](https://people.eecs.berkeley.edu/~jegonzal/), [Ion Stoica](http://people.eecs.berkeley.edu/~istoica/)
+
+## Past Members
+- [Siyuan Zhuang](https://scholar.google.com/citations?user=KSZmI5EAAAAJ), [Hao Zhang](https://cseweb.ucsd.edu/~haozhang/)
+
+## Learn more
+- Chatbot Arena [paper](https://arxiv.org/abs/2403.04132), [launch blog](https://lmsys.org/blog/2023-05-03-arena/), [dataset](https://github.com/lm-sys/FastChat/blob/main/docs/dataset_release.md), [policy](https://lmsys.org/blog/2024-03-01-policy/)
+- LMSYS-Chat-1M dataset [paper](https://arxiv.org/abs/2309.11998), LLM Judge [paper](https://arxiv.org/abs/2306.05685)
+
+## Contact Us
+- Follow our [X](https://x.com/lmsysorg), [Discord](https://discord.gg/HSWAKCrnFx) or email us at lmsys.org@gmail.com
+- File issues on [GitHub](https://github.com/lm-sys/FastChat)
+- Download our datasets and models on [HuggingFace](https://huggingface.co/lmsys)
+
+## Acknowledgment
+We thank [SkyPilot](https://github.com/skypilot-org/skypilot) and [Gradio](https://github.com/gradio-app/gradio) team for their system support.
+We also thank [UC Berkeley SkyLab](https://sky.cs.berkeley.edu/), [Kaggle](https://www.kaggle.com/), [MBZUAI](https://mbzuai.ac.ae/), [a16z](https://www.a16z.com/), [Together AI](https://www.together.ai/), [Hyperbolic](https://hyperbolic.xyz/), [Anyscale](https://www.anyscale.com/), [HuggingFace](https://huggingface.co/) for their generous sponsorship. Learn more about partnership [here](https://lmsys.org/donations/).
+
+<div class="sponsor-image-about">
+    <img src="https://storage.googleapis.com/public-arena-asset/skylab.png" alt="SkyLab">
+    <img src="https://storage.googleapis.com/public-arena-asset/kaggle.png" alt="Kaggle">
+    <img src="https://storage.googleapis.com/public-arena-asset/mbzuai.jpeg" alt="MBZUAI">
+    <img src="https://storage.googleapis.com/public-arena-asset/a16z.jpeg" alt="a16z">
+    <img src="https://storage.googleapis.com/public-arena-asset/together.png" alt="Together AI">
+    <img src="https://storage.googleapis.com/public-arena-asset/hyperbolic_logo.png" alt="Hyperbolic">
+    <img src="https://storage.googleapis.com/public-arena-asset/anyscale.png" alt="AnyScale">
+    <img src="https://storage.googleapis.com/public-arena-asset/huggingface.png" alt="HuggingFace">
+</div>
+"""
+    gr.Markdown(about_markdown, elem_id="about_markdown")
+
+
 def build_single_model_ui(models, add_promotion_links=False):
     promotion = (
         """
 - | [GitHub](https://github.com/lm-sys/FastChat) | [Dataset](https://github.com/lm-sys/FastChat/blob/main/docs/dataset_release.md) | [Twitter](https://twitter.com/lmsysorg) | [Discord](https://discord.gg/HSWAKCrnFx) |
 - Introducing Llama 2: The Next Generation Open Source Large Language Model. [[Website]](https://ai.meta.com/llama/)
 - Vicuna: An Open-Source Chatbot Impressing GPT-4 with 90% ChatGPT Quality. [[Blog]](https://lmsys.org/blog/2023-03-30-vicuna/)
+
+## 🤖 Choose any model to chat
 """
         if add_promotion_links
         else ""
@@ -552,38 +784,41 @@ def build_single_model_ui(models, add_promotion_links=False):
     notice_markdown = f"""
 # 🏔️ Chat with Open Large Language Models
 {promotion}
-
-### Choose a model to chat with
 """
 
     state = gr.State()
-    model_description_md = get_model_description_md(models)
-    gr.Markdown(notice_markdown + model_description_md, elem_id="notice_markdown")
+    gr.Markdown(notice_markdown, elem_id="notice_markdown")
 
-    with gr.Row(elem_id="model_selector_row"):
-        model_selector = gr.Dropdown(
-            choices=models,
-            value=models[0] if len(models) > 0 else "",
-            interactive=True,
-            show_label=False,
-            container=False,
-        )
-
-    chatbot = gr.Chatbot(
-        elem_id="chatbot",
-        label="Scroll down and start chatting",
-        height=550,
-    )
-    with gr.Row():
-        with gr.Column(scale=20):
-            textbox = gr.Textbox(
+    with gr.Group(elem_id="share-region-named"):
+        with gr.Row(elem_id="model_selector_row"):
+            model_selector = gr.Dropdown(
+                choices=models,
+                value=models[0] if len(models) > 0 else "",
+                interactive=True,
                 show_label=False,
-                placeholder="Enter your prompt here and press ENTER",
                 container=False,
-                elem_id="input_box",
             )
-        with gr.Column(scale=1, min_width=50):
-            send_btn = gr.Button(value="Send", variant="primary")
+        with gr.Row():
+            with gr.Accordion(
+                f"🔍 Expand to see the descriptions of {len(models)} models",
+                open=False,
+            ):
+                model_description_md = get_model_description_md(models)
+                gr.Markdown(model_description_md, elem_id="model_description_markdown")
+
+        chatbot = gr.Chatbot(
+            elem_id="chatbot",
+            label="Scroll down and start chatting",
+            height=550,
+            show_copy_button=True,
+        )
+    with gr.Row():
+        textbox = gr.Textbox(
+            show_label=False,
+            placeholder="👉 Enter your prompt and press ENTER",
+            elem_id="input_box",
+        )
+        send_btn = gr.Button(value="Send", variant="primary", scale=0)
 
     with gr.Row() as button_row:
         upvote_btn = gr.Button(value="👍  Upvote", interactive=False)
@@ -611,17 +846,18 @@ def build_single_model_ui(models, add_promotion_links=False):
         )
         max_output_tokens = gr.Slider(
             minimum=16,
-            maximum=1024,
-            value=512,
+            maximum=2048,
+            value=1024,
             step=64,
             interactive=True,
             label="Max output tokens",
         )
 
     if add_promotion_links:
-        gr.Markdown(acknowledgment_md)
+        gr.Markdown(acknowledgment_md, elem_id="ack_markdown")
 
     # Register listeners
+    imagebox = gr.State(None)
     btn_list = [upvote_btn, downvote_btn, flag_btn, regenerate_btn, clear_btn]
     upvote_btn.click(
         upvote_last_response,
@@ -638,17 +874,23 @@ def build_single_model_ui(models, add_promotion_links=False):
         [state, model_selector],
         [textbox, upvote_btn, downvote_btn, flag_btn],
     )
-    regenerate_btn.click(regenerate, state, [state, chatbot, textbox] + btn_list).then(
+    regenerate_btn.click(
+        regenerate, state, [state, chatbot, textbox, imagebox] + btn_list
+    ).then(
         bot_response,
         [state, temperature, top_p, max_output_tokens],
         [state, chatbot] + btn_list,
     )
-    clear_btn.click(clear_history, None, [state, chatbot, textbox] + btn_list)
+    clear_btn.click(clear_history, None, [state, chatbot, textbox, imagebox] + btn_list)
 
-    model_selector.change(clear_history, None, [state, chatbot, textbox] + btn_list)
+    model_selector.change(
+        clear_history, None, [state, chatbot, textbox, imagebox] + btn_list
+    )
 
     textbox.submit(
-        add_text, [state, model_selector, textbox], [state, chatbot, textbox] + btn_list
+        add_text,
+        [state, model_selector, textbox, imagebox],
+        [state, chatbot, textbox, imagebox] + btn_list,
     ).then(
         bot_response,
         [state, temperature, top_p, max_output_tokens],
@@ -656,8 +898,8 @@ def build_single_model_ui(models, add_promotion_links=False):
     )
     send_btn.click(
         add_text,
-        [state, model_selector, textbox],
-        [state, chatbot, textbox] + btn_list,
+        [state, model_selector, textbox, imagebox],
+        [state, chatbot, textbox, imagebox] + btn_list,
     ).then(
         bot_response,
         [state, temperature, top_p, max_output_tokens],
@@ -692,7 +934,7 @@ def build_demo(models):
                 state,
                 model_selector,
             ],
-            _js=load_js,
+            js=load_js,
         )
 
     return demo
@@ -737,41 +979,33 @@ if __name__ == "__main__":
         help="Shows term of use before loading the demo",
     )
     parser.add_argument(
-        "--add-chatgpt",
-        action="store_true",
-        help="Add OpenAI's ChatGPT models (gpt-3.5-turbo, gpt-4)",
-    )
-    parser.add_argument(
-        "--add-claude",
-        action="store_true",
-        help="Add Anthropic's Claude models (claude-2, claude-instant-1)",
-    )
-    parser.add_argument(
-        "--add-palm",
-        action="store_true",
-        help="Add Google's PaLM model (PaLM 2 for Chat: chat-bison@001)",
-    )
-    parser.add_argument(
-        "--register-openai-compatible-models",
+        "--register-api-endpoint-file",
         type=str,
-        help="Register custom OpenAI API compatible models by loading them from a JSON file",
+        help="Register API-based model endpoints from a JSON file",
     )
     parser.add_argument(
         "--gradio-auth-path",
         type=str,
         help='Set the gradio authentication file path. The file should contain one or more user:password pairs in this format: "u1:p1,u2:p2,u3:p3"',
     )
+    parser.add_argument(
+        "--gradio-root-path",
+        type=str,
+        help="Sets the gradio root path, eg /abc/def. Useful when running behind a reverse-proxy or at a custom URL path prefix",
+    )
+    parser.add_argument(
+        "--use-remote-storage",
+        action="store_true",
+        default=False,
+        help="Uploads image files to google cloud storage if set to true",
+    )
     args = parser.parse_args()
     logger.info(f"args: {args}")
 
     # Set global variables
-    set_global_vars(args.controller_url, args.moderate)
-    models = get_model_list(
-        args.controller_url,
-        args.register_openai_compatible_models,
-        args.add_chatgpt,
-        args.add_claude,
-        args.add_palm,
+    set_global_vars(args.controller_url, args.moderate, args.use_remote_storage)
+    models, all_models = get_model_list(
+        args.controller_url, args.register_api_endpoint_file, False
     )
 
     # Set authorization credentials
@@ -782,11 +1016,14 @@ if __name__ == "__main__":
     # Launch the demo
     demo = build_demo(models)
     demo.queue(
-        concurrency_count=args.concurrency_count, status_update_rate=10, api_open=False
+        default_concurrency_limit=args.concurrency_count,
+        status_update_rate=10,
+        api_open=False,
     ).launch(
         server_name=args.host,
         server_port=args.port,
         share=args.share,
         max_threads=200,
         auth=auth,
+        root_path=args.gradio_root_path,
     )
