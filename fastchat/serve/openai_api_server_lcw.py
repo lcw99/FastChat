@@ -415,6 +415,17 @@ async def create_chat_completion(request: ChatCompletionRequest):
         return error_check_ret
     worker_addr = await get_worker_address(request.model)
 
+    system_message = request.messages[0]
+    if "||" in system_message['content']:
+        ss = system_message['content'].split("||")
+        system_message['content'] = ss[0]
+        request.messages[0] = system_message
+        message_str = ss[1]
+        message_arr = message_str[1:].split("{")
+        for m in message_arr:
+            mm = m.split("}")
+            request.messages.insert(1, {"role": mm[0], "content": mm[1]})
+
     gen_params = await get_gen_params(
         request.model,
         worker_addr,
@@ -428,7 +439,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     # lcw
     MAX_NUM_MESSAGES = 12
-    MAX_CONTEXT_LENGTH = 5000
+    MAX_CONTEXT_LENGTH = 8000
 
     full_conv = "\n".join([json.dumps(m, ensure_ascii=False) for m in request.messages])
     # for entry in request.messages:
@@ -681,7 +692,7 @@ async def chat_completion_stream_generator(
     prompt = gen_params["prompt"]
     q = prompt.splitlines()[-2]
     logger.info(colored(f"\n{q}", on_color="on_green"))
-    logger.info(f"A: {assistant.strip()}")
+    logger.info(f"{assistant.strip()}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
         with open(conv_file_path, "a") as f:
