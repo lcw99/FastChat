@@ -422,7 +422,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
         request.messages[0] = system_message
         message_str = ss[1]
         message_arr = message_str[1:].split("{")
-        for m in message_arr:
+        for m in reversed(message_arr):
             mm = m.split("}")
             request.messages.insert(1, {"role": mm[0], "content": mm[1]})
 
