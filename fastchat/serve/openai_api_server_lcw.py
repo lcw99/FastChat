@@ -481,8 +481,8 @@ async def create_chat_completion(request: ChatCompletionRequest):
     #     messages.insert(len(messages) - 1, {"role": "user", "content": "상기 대화 보다는 맨앞 운세 자료를 기반으로 아래 질문에 답변해."})
 
     messages.insert(0, system_message)
-    if "ChangGPT" not in system_message["content"] and "SajuGPT" not in system_message["content"]:
-        messages[-1]["content"] = messages[-1]["content"].replace("사주", "운세[사주]")
+    # if "ChangGPT" not in system_message["content"] and "SajuGPT" not in system_message["content"]:
+    #     messages[-1]["content"] = messages[-1]["content"].replace("사주", "운세[사주]")
         # messages[-1]["content"] += "(내 운명이 걸린 일이니 위 사주를 분석하여 답변하세요)"
         
 
@@ -517,8 +517,8 @@ async def create_chat_completion(request: ChatCompletionRequest):
             max_tokens = context_length - (input_length + 96)
             if max_tokens < 100:
                 max_tokens = 100
-            elif max_tokens > 900:
-                max_tokens = 900
+            elif max_tokens > 2000:
+                max_tokens = 2000
             if request.max_tokens and max_tokens > request.max_tokens:
                 max_tokens = request.max_tokens
             break
