@@ -179,7 +179,7 @@ class Conversation:
                     ret += f"<|START_OF_TURN_TOKEN|>{role}"
                     ret += f"{message.strip()}<|END_OF_TURN_TOKEN|>"
                 else:
-                    ret += f"<BOS_TOKEN>{role}<EOS_TOKEN>"
+                    ret += f"<BOS_TOKEN>{role}"
             return ret
         elif self.sep_style == SeparatorStyle.CHATGLM:
             # source: https://huggingface.co/THUDM/chatglm-6b/blob/1d240ba371910e9282298d4592532d7f0f3e9f3e/modeling_chatglm.py#L1302-L1308
