@@ -38,6 +38,7 @@ class SeparatorStyle(IntEnum):
     GEMMA = auto()
     CLLM = auto()
     DEFAULT = auto()
+    AYA23 = auto()
 
 
 IMAGE_PLACEHOLDER_STR = "$$<image>$$"
@@ -166,6 +167,19 @@ class Conversation:
                     ret += f"{message.strip()}<|eot_id|>"
                 else:
                     ret += f"<|start_header_id|>{role}<|end_header_id|>\n\n"
+            return ret
+        elif self.sep_style == SeparatorStyle.AYA23:
+            ret = "<BOS_TOKEN>"
+            if self.system_message:
+                ret += system_prompt
+            else:
+                ret += ""
+            for i, (role, message) in enumerate(self.messages):
+                if message:
+                    ret += f"<|START_OF_TURN_TOKEN|>{role}"
+                    ret += f"{message.strip()}<|END_OF_TURN_TOKEN|>"
+                else:
+                    ret += f"<BOS_TOKEN>{role}<EOS_TOKEN>"
             return ret
         elif self.sep_style == SeparatorStyle.CHATGLM:
             # source: https://huggingface.co/THUDM/chatglm-6b/blob/1d240ba371910e9282298d4592532d7f0f3e9f3e/modeling_chatglm.py#L1302-L1308
@@ -1288,6 +1302,20 @@ register_conv_template(
         sep="",
         stop_str="<|eot_id|>",
         stop_token_ids=[128001, 128009],
+    )
+)
+
+# aya-23 template
+# <BOS_TOKEN><|START_OF_TURN_TOKEN|><|USER_TOKEN|>Anneme onu ne kadar sevdiğimi anlatan bir mektup yaz<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>
+register_conv_template(
+    Conversation(
+        name="aya-23",
+        system_template="<|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|>{system_message}<|END_OF_TURN_TOKEN|>",
+        roles=("<|USER_TOKEN|>", "<|CHATBOT_TOKEN|>"),
+        sep_style=SeparatorStyle.AYA23,
+        sep="",
+        stop_str="<|END_OF_TURN_TOKEN|>",
+        stop_token_ids=[255001],
     )
 )
 
