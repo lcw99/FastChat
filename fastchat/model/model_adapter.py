@@ -83,6 +83,8 @@ OPENAI_MODEL_LIST = (
     "gpt-4-turbo-2024-04-09",
 )
 
+from fastchat.utils import build_logger
+logger = build_logger("openai_api_server", "openai_api_server.log")
 
 class BaseModelAdapter:
     """The base and the default model adapter."""
@@ -93,6 +95,7 @@ class BaseModelAdapter:
         return True
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
+        logger.info(f"\n\n\n{model_path=}\n\n\n")
         revision = from_pretrained_kwargs.get("revision", "main")
         try:
             tokenizer = AutoTokenizer.from_pretrained(
