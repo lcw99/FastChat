@@ -10,8 +10,10 @@ python3 -m fastchat.serve.openai_api_server
 import asyncio
 import argparse
 import json
+import logging
 import os
 from typing import Generator, Optional, Union, Dict, List, Any
+from pathlib import Path
 
 import aiohttp
 import fastapi
@@ -26,6 +28,8 @@ from pydantic_settings import BaseSettings
 import shortuuid
 import tiktoken
 import uvicorn
+import typing
+from termcolor import colored
 
 from fastchat.constants import (
     WORKER_API_TIMEOUT,
@@ -49,7 +53,6 @@ from fastchat.protocol.openai_api_protocol import (
     EmbeddingsRequest,
     EmbeddingsResponse,
     ErrorResponse,
-    LogProbs,
     ModelCard,
     ModelList,
     ModelPermission,
@@ -61,6 +64,8 @@ from fastchat.protocol.api_protocol import (
     APITokenCheckResponse,
     APITokenCheckResponseItem,
 )
+
+# logger = logging.getLogger(__name__)
 from fastchat.utils import build_logger
 
 logger = build_logger("openai_api_server", "openai_api_server.log")
@@ -129,6 +134,7 @@ async def check_api_key(
 
 
 def create_error_response(code: int, message: str) -> JSONResponse:
+    logger.info(message)
     return JSONResponse(
         ErrorResponse(message=message, code=code).model_dump(), status_code=400
     )
@@ -150,6 +156,26 @@ async def check_model(request) -> Optional[JSONResponse]:
             f"Only {'&&'.join(models)} allowed now, your model {request.model}",
         )
     return ret
+
+
+# lcw
+async def get_token_length(request, prompt, worker_addr):
+    token_num = await fetch_remote(
+        worker_addr + "/count_token",
+        {"model": request.model, "prompt": prompt},
+        "count",
+    )
+    return token_num
+
+
+async def get_context_length(request, worker_addr):
+    context_len = await fetch_remote(
+        worker_addr + "/model_details", {"model": request.model}, "context_length"
+    )
+    return context_len
+
+
+# end lcw
 
 
 async def check_length(request, prompt, max_tokens, worker_addr):
@@ -332,6 +358,8 @@ async def get_gen_params(
         prompt = conv.get_prompt()
         images = conv.get_images()
 
+    if max_tokens is None:
+        max_tokens = 512
     gen_params = {
         "model": model_name,
         "prompt": prompt,
@@ -408,6 +436,38 @@ async def show_available_models():
     return ModelList(data=model_cards)
 
 
+class MyStreamingResponse(StreamingResponse):
+    from starlette.types import Receive, Scope, Send
+    from starlette.background import BackgroundTask
+
+    Content = typing.Union[str, bytes]
+    SyncContentStream = typing.Iterator[Content]
+    AsyncContentStream = typing.AsyncIterable[Content]
+    ContentStream = typing.Union[AsyncContentStream, SyncContentStream]
+
+    def __init__(
+        self,
+        content: ContentStream,
+        status_code: int = 200,
+        headers: typing.Optional[typing.Mapping[str, str]] = None,
+        media_type: typing.Optional[str] = None,
+        background: typing.Optional[BackgroundTask] = None,
+        callback: typing.Callable = None,
+    ) -> None:
+        self.callback = callback
+        super(MyStreamingResponse, self).__init__(
+            content, status_code, headers, media_type, background
+        )
+
+    async def listen_for_disconnect(self, receive: Receive) -> None:
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                logger.info(f"{message=}")
+                await self.callback()
+                break
+
+
 @app.post("/v1/chat/completions", dependencies=[Depends(check_api_key)])
 async def create_chat_completion(request: ChatCompletionRequest):
     """Creates a completion for the chat message"""
@@ -419,6 +479,17 @@ async def create_chat_completion(request: ChatCompletionRequest):
         return error_check_ret
 
     worker_addr = await get_worker_address(request.model)
+
+    system_message = request.messages[0]
+    if "||" in system_message['content']:
+        ss = system_message['content'].split("||")
+        system_message['content'] = ss[0]
+        request.messages[0] = system_message
+        message_str = ss[1]
+        message_arr = message_str[1:].split("{")
+        for m in reversed(message_arr):
+            mm = m.split("}")
+            request.messages.insert(1, {"role": mm[0], "content": mm[1]})
 
     gen_params = await get_gen_params(
         request.model,
@@ -434,6 +505,133 @@ async def create_chat_completion(request: ChatCompletionRequest):
         stop=request.stop,
     )
 
+    # lcw
+    MAX_NUM_MESSAGES = 12
+    MAX_CONTEXT_LENGTH = 8000
+
+    full_conv = "\n".join([json.dumps(m, ensure_ascii=False) for m in request.messages])
+    # for entry in request.messages:
+    #     full_conv += json.dumps(entry, ensure_ascii=False) + "\n"
+
+    # full_conv = json.dumps(request.messages, ensure_ascii=False, indent=2)
+    messages = request.messages
+    system_message = messages.pop(0)
+    context_length = (await get_context_length(request, worker_addr)) - 128
+    if context_length > MAX_CONTEXT_LENGTH:
+        context_length = MAX_CONTEXT_LENGTH
+    if len(messages) > MAX_NUM_MESSAGES:
+        messages = messages[-MAX_NUM_MESSAGES:]
+        
+    # compact assistant message
+    for idx in range(len(messages)):
+        messages[idx]['content'] = messages[idx]['content'].strip()
+        m = messages[idx]
+        content = m['content'].strip()
+        if m['role'] == 'assistant' and len(content) > 200:
+            cc = content.split(".")
+            i = 0
+            begin = ""
+            while len(begin) < 80 and i < len(cc):
+                if len(cc[i]) > 0:
+                    begin += cc[i] + "."
+                i += 1
+            i = len(cc) - 1
+            end = ""
+            while len(end) < 80 and i > 0:
+                if len(cc[i]) > 0:
+                    end = cc[i] + "." + end
+                i -= 1
+            messages[idx]['content'] = (begin + end).replace("\n\n", "\n")
+            # messages[i]['content'] = content[:100] + "..." + content[-100:]
+            # logger.info(f"compacted={messages[i]['content']}")
+            
+    # if len(messages) > 6:
+    #     messages.insert(len(messages) - 1, {"role": "user", "content": "상기 대화 보다는 맨앞 운세 자료를 기반으로 아래 질문에 답변해."})
+
+    messages.insert(0, system_message)
+    # if "ChangGPT" not in system_message["content"] and "SajuGPT" not in system_message["content"]:
+    #     messages[-1]["content"] = messages[-1]["content"].replace("사주", "운세[사주]")
+        # messages[-1]["content"] += "(내 운명이 걸린 일이니 위 사주를 분석하여 답변하세요)"
+        
+
+    logger.info(f"{request.max_tokens=}")
+    request.messages = messages
+    max_tokens = request.max_tokens
+    if not request.max_tokens:
+        max_tokens = 500
+    while True:
+        gen_params = await get_gen_params(
+            request.model,
+            worker_addr,
+            messages,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            top_k=request.top_k,
+            presence_penalty=request.presence_penalty,
+            frequency_penalty=request.frequency_penalty,
+            max_tokens=max_tokens,
+            echo=False,
+            stop=request.stop,
+        )
+        input_length = await get_token_length(
+            request, gen_params["prompt"], worker_addr
+        )
+        logger.info(f"{input_length=}\n{max_tokens=}\n{len(messages)=}")
+        if input_length + max_tokens > context_length:
+            if len(messages) == 2:
+                return create_error_response(
+                    ErrorCode.INTERNAL_ERROR, "message too long."
+                )
+            else:
+                messages.pop(1)
+        else:
+            max_tokens = context_length - (input_length + 96)
+            if max_tokens < 100:
+                max_tokens = 100
+            elif max_tokens > 2000:
+                max_tokens = 2000
+            if request.max_tokens and max_tokens > request.max_tokens:
+                max_tokens = request.max_tokens
+            break
+
+    request.messages = messages
+    # request.max_tokens = max_tokens
+    gen_params = await get_gen_params(
+        request.model,
+        worker_addr,
+        messages,
+        temperature=request.temperature,
+        top_p=request.top_p,
+        top_k=request.top_k,
+        presence_penalty=request.presence_penalty,
+        frequency_penalty=request.frequency_penalty,
+        max_tokens=max_tokens,
+        echo=False,
+        stop=request.stop,
+    )
+
+    # print(messages)
+    print(gen_params["prompt"])
+    logger.info(f"after calc {max_tokens=} {input_length=} {context_length=}")
+    logger.info(f"max_new_tokens={gen_params['max_new_tokens']}")
+    logger.info(f"{request.temperature=}, {request.top_p=}")
+
+    conv_file_path = None
+    user_id = ""
+    if "|" in request.user:
+        uu = request.user.split("|")
+        user_id = uu[1]
+        newpath = f"{Path.home()}/log/saju-conv/{user_id}"
+        if not os.path.exists(newpath):
+            os.makedirs(newpath)
+
+        file_name = f"{uu[0]}.jsonl"
+        conv_file_path = os.path.join(newpath, file_name)
+        with open(conv_file_path, "w") as f:
+            f.write(full_conv)
+    logger.info(f"{user_id=}")
+    # end lcw
+
     max_new_tokens, error_check_ret = await check_length(
         request,
         gen_params["prompt"],
@@ -447,9 +645,24 @@ async def create_chat_completion(request: ChatCompletionRequest):
     gen_params["max_new_tokens"] = max_new_tokens
 
     if request.stream:
+        client = httpx.AsyncClient()
         generator = chat_completion_stream_generator(
-            request.model, gen_params, request.n, worker_addr
+            request.model,
+            gen_params,
+            request.n,
+            worker_addr,
+            conv_file_path=conv_file_path,
+            client=client,
         )
+
+        async def callback():
+            await client.aclose()
+            logger.info("client closed")
+
+        # res = MyStreamingResponse(
+        #     generator, media_type="text/event-stream", callback=callback
+        # )
+        # return res
         return StreamingResponse(generator, media_type="text/event-stream")
 
     choices = []
@@ -484,7 +697,12 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
 
 async def chat_completion_stream_generator(
-    model_name: str, gen_params: Dict[str, Any], n: int, worker_addr: str
+    model_name: str,
+    gen_params: Dict[str, Any],
+    n: int,
+    worker_addr: str,
+    conv_file_path: str = None,
+    client: httpx.AsyncClient = None,
 ) -> Generator[str, Any, None]:
     """
     Event stream format:
@@ -492,6 +710,7 @@ async def chat_completion_stream_generator(
     """
     id = f"chatcmpl-{shortuuid.random()}"
     finish_stream_events = []
+    assistant = ""
     for i in range(n):
         # First chunk with role
         choice_data = ChatCompletionResponseStreamChoice(
@@ -505,10 +724,19 @@ async def chat_completion_stream_generator(
         yield f"data: {chunk.model_dump_json(exclude_unset=True)}\n\n"
 
         previous_text = ""
-        async for content in generate_completion_stream(gen_params, worker_addr):
+        async for content in generate_completion_stream(
+            gen_params, worker_addr, client=client
+        ):
             if content["error_code"] != 0:
                 yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
                 yield "data: [DONE]\n\n"
+
+                # lcw
+                logger.info(f"[DONE ERROR]: {content}")  # lcw
+                if conv_file_path:
+                    data = {"role": "assistant", "content": assistant}
+                    with open(conv_file_path, "a") as f:
+                        f.write("\n" + json.dumps(data, ensure_ascii=False))
                 return
             decoded_unicode = content["text"].replace("\ufffd", "")
             delta_text = decoded_unicode[len(previous_text) :]
@@ -517,7 +745,8 @@ async def chat_completion_stream_generator(
                 if len(decoded_unicode) > len(previous_text)
                 else previous_text
             )
-
+            # logger.info("." + delta_text, end="", flush=True)   # lcw
+            assistant += delta_text
             if len(delta_text) == 0:
                 delta_text = None
             choice_data = ChatCompletionResponseStreamChoice(
@@ -532,10 +761,23 @@ async def chat_completion_stream_generator(
                 if content.get("finish_reason", None) is not None:
                     finish_stream_events.append(chunk)
                 continue
-            yield f"data: {chunk.model_dump_json(exclude_unset=True)}\n\n"
+            data = f"data: {chunk.model_dump_json(exclude_unset=False)}\n\n"
+            # logger.info(data)
+            yield data
     # There is not "content" field in the last delta message, so exclude_none to exclude field "content".
     for finish_chunk in finish_stream_events:
         yield f"data: {finish_chunk.model_dump_json(exclude_none=True)}\n\n"
+
+    # lcw
+    prompt = gen_params["prompt"]
+    # q = prompt.splitlines()[-2]
+    logger.info(colored(f"\n{prompt}", on_color="on_green"))
+    logger.info(f"{assistant.strip()}")
+    if conv_file_path:
+        data = {"role": "assistant", "content": assistant}
+        with open(conv_file_path, "a") as f:
+            f.write("\n" + json.dumps(data, ensure_ascii=False))
+
     yield "data: [DONE]\n\n"
 
 
@@ -677,9 +919,11 @@ async def generate_completion_stream_generator(
     yield "data: [DONE]\n\n"
 
 
-async def generate_completion_stream(payload: Dict[str, Any], worker_addr: str):
+async def generate_completion_stream(
+    payload: Dict[str, Any], worker_addr: str, client: httpx.AsyncClient
+):
     controller_address = app_settings.controller_address
-    async with httpx.AsyncClient() as client:
+    async with client:
         delimiter = b"\0"
         async with client.stream(
             "POST",
