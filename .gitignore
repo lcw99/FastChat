@@ -33,3 +33,7 @@ build
 localtools/
 *.sh
 !vllm_worker_to_aws_n_gpu.sh
+# Image data
+serve_images
+val2014
+vqa_examples
