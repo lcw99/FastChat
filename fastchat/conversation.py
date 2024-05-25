@@ -304,6 +304,8 @@ class Conversation:
             return ret
         elif self.sep_style == SeparatorStyle.GEMMA:
             ret = "<bos>"
+            if self.system_message:
+                ret += "<start_of_turn>" + "system" + "\n" + system_prompt + self.sep
             for role, message in self.messages:
                 if message:
                     ret += "<start_of_turn>" + role + "\n" + message + self.sep
@@ -2064,6 +2066,7 @@ register_conv_template(
         sep_style=SeparatorStyle.GEMMA,
         sep="<end_of_turn>\n",
         stop_str="<end_of_turn>",
+        stop_token_ids=[106, 107]
     )
 )
 
