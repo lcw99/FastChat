@@ -123,7 +123,7 @@ class BaseModelWorker:
                 break
             except (requests.exceptions.RequestException, KeyError) as e:
                 logger.error(f"heart beat error: {e}")
-            time.sleep(2)
+            time.sleep(5)
 
         if not exist:
             self.register_to_controller()
