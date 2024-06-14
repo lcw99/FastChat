@@ -49,17 +49,17 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
         messages[idx]['content'] = messages[idx]['content'].strip()
         m = messages[idx]
         content = m['content'].strip()
-        if m['role'] == 'assistant' and len(content) > 200:
+        if m['role'] == 'assistant' and len(content) > 500:
             cc = content.split(".")
             i = 0
             begin = ""
-            while len(begin) < 80 and i < len(cc):
+            while len(begin) < 150 and i < len(cc):
                 if len(cc[i]) > 0:
                     begin += cc[i] + "."
                 i += 1
             i = len(cc) - 1
             end = ""
-            while len(end) < 80 and i > 0:
+            while len(end) < 150 and i > 0:
                 if len(cc[i]) > 0:
                     end = cc[i] + "." + end
                 i -= 1
