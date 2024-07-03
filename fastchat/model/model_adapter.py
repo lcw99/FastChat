@@ -2613,7 +2613,8 @@ register_model_adapter(RekaAdapter)
 register_model_adapter(SmaugChatAdapter)
 register_model_adapter(Llama3Adapter)
 
-
+register_model_adapter(Llama2ChangAdapter)
+register_model_adapter(ChangGPTAdapter)
 
 # After all adapters, try the default base adapter.
 register_model_adapter(BaseModelAdapter)
