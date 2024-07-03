@@ -32,12 +32,37 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
     MAX_CONTEXT_LENGTH = 8000
 
     full_conv = "\n".join([json.dumps(m, ensure_ascii=False) for m in request.messages])
-    # for entry in request.messages:
-    #     full_conv += json.dumps(entry, ensure_ascii=False) + "\n"
-
-    # full_conv = json.dumps(request.messages, ensure_ascii=False, indent=2)
     messages = request.messages
     system_message = messages.pop(0)
+    
+    conv_file_path = None
+    user_id = ""
+    if request.user is not None and "|" in request.user:
+        uu = request.user.split("|")
+        if uu[0] == "vote":     # "vote|up/down|user_id|chat_id"
+            newpath = f"{Path.home()}/log/saju-vote/{uu[1]}/{uu[2]}"
+            if not os.path.exists(newpath):
+                os.makedirs(newpath)
+            file_name = f"{uu[3]}.jsonl"
+            vote_file_path = os.path.join(newpath, file_name)
+            with open(vote_file_path, "w") as f:
+                f.write(full_conv)
+            return "stop"
+            
+        user_id = uu[1]
+        menu_title = ""
+        if len(uu) > 2:
+            menu_title = uu[2]
+        newpath = f"{Path.home()}/log/saju-conv/{user_id}"
+        if not os.path.exists(newpath):
+            os.makedirs(newpath)
+
+        file_name = f"{menu_title}_{uu[0]}.jsonl"
+        conv_file_path = os.path.join(newpath, file_name)
+        with open(conv_file_path, "w") as f:
+            f.write(full_conv)
+        logger.info(f"{user_id=}, {menu_title=}")    
+    
     context_length = (await get_context_length(request, worker_addr)) - 128
     if context_length > MAX_CONTEXT_LENGTH:
         context_length = MAX_CONTEXT_LENGTH
@@ -138,22 +163,5 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
     logger.info(f"max_new_tokens={gen_params['max_new_tokens']}")
     logger.info(f"{request.temperature=}, {request.top_p=}")
 
-    conv_file_path = None
-    user_id = ""
-    if request.user is not None and "|" in request.user:
-        uu = request.user.split("|")
-        user_id = uu[1]
-        menu_title = ""
-        if len(uu) > 2:
-            menu_title = uu[2]
-        newpath = f"{Path.home()}/log/saju-conv/{user_id}"
-        if not os.path.exists(newpath):
-            os.makedirs(newpath)
 
-        file_name = f"{menu_title}_{uu[0]}.jsonl"
-        conv_file_path = os.path.join(newpath, file_name)
-        with open(conv_file_path, "w") as f:
-            f.write(full_conv)
-        logger.info(f"{user_id=}, {menu_title=}")
-    # end lcw    
     return conv_file_path         

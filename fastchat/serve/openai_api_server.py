@@ -487,6 +487,8 @@ async def create_chat_completion(request: ChatCompletionRequest):
     # call lcw converation log
     from fastchat.serve.lcw import lcw_process
     conv_file_path = await lcw_process(request, worker_addr)
+    if conv_file_path == "stop":
+        return error_check_ret
     
     max_new_tokens, error_check_ret = await check_length(
         request,
