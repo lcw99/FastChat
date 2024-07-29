@@ -71,7 +71,8 @@ class VLLMWorker(BaseModelWorker):
         context = params.pop("prompt")
         
         from fastchat.serve.lcw import extract_last_user_message
-        logger.info(extract_last_user_message(context))    # lcw
+        user_question = extract_last_user_message(context).strip()
+        # logger.info(user_question)    # lcw
         
         request_id = params.pop("request_id")
         temperature = float(params.get("temperature", 1.0))
@@ -169,7 +170,7 @@ class VLLMWorker(BaseModelWorker):
             # Emit twice here to ensure a 'finish_reason' with empty content in the OpenAI API response.
             # This aligns with the behavior of model_worker.
             if request_output.finished:
-                logger.info(text_outputs)   # lcw
+                logger.info(f"Q: {user_question}\nA: {text_outputs}")   # lcw
                 yield (json.dumps({**ret, **{"finish_reason": None}}) + "\0").encode()
             yield (json.dumps(ret) + "\0").encode()
 
