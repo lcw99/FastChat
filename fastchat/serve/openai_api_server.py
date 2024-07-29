@@ -459,16 +459,20 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     worker_addr = await get_worker_address(request.model)
 
+    # lcw
+    logger.info(request.messages)
     system_message = request.messages[0]
-    if "||" in system_message['content']:
+    if system_message['role'] == "system" and "||" in system_message['content']:
         ss = system_message['content'].split("||")
         system_message['content'] = ss[0]
         request.messages[0] = system_message
         message_str = ss[1]
-        message_arr = message_str[1:].split("{")
-        for m in reversed(message_arr):
-            mm = m.split("}")
-            request.messages.insert(1, {"role": mm[0], "content": mm[1]})
+        if "{" in message_str[1:]:
+            message_arr = message_str[1:].split("{")
+            for m in reversed(message_arr):
+                if "}" in m:
+                    mm = m.split("}")
+                    request.messages.insert(1, {"role": mm[0], "content": mm[1]})
 
     gen_params = await get_gen_params(
         request.model,

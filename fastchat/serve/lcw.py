@@ -165,3 +165,20 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
 
 
     return conv_file_path         
+
+
+def extract_last_user_message(text):
+    start_tag = "<|start_header_id|>user<|end_header_id|>"
+    end_tag = "<|eot_id|>"
+    
+    last_start = text.rfind(start_tag)
+    if last_start == -1:
+        return None  # Start tag not found
+    
+    message_start = last_start + len(start_tag)
+    message_end = text.find(end_tag, message_start)
+    
+    if message_end == -1:
+        return None  # End tag not found
+    
+    return text[message_start:message_end]

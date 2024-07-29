@@ -64,10 +64,15 @@ class VLLMWorker(BaseModelWorker):
         if not no_register:
             self.init_heart_beat()
 
+
     async def generate_stream(self, params):
         self.call_ct += 1
 
         context = params.pop("prompt")
+        
+        from fastchat.serve.lcw import extract_last_user_message
+        logger.info(extract_last_user_message(context))    # lcw
+        
         request_id = params.pop("request_id")
         temperature = float(params.get("temperature", 1.0))
         top_p = float(params.get("top_p", 1.0))
@@ -304,3 +309,5 @@ if __name__ == "__main__":
         args.conv_template,
     )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+
+
