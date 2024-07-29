@@ -132,9 +132,6 @@ class VLLMWorker(BaseModelWorker):
             else:
                 text_outputs = [output.text for output in request_output.outputs]
 
-            # lcw
-            # print(text_outputs)
-            
             text_outputs = " ".join(text_outputs)
 
             partial_stop = any(is_partial_stop(text_outputs, i) for i in stop)
@@ -172,6 +169,7 @@ class VLLMWorker(BaseModelWorker):
             # Emit twice here to ensure a 'finish_reason' with empty content in the OpenAI API response.
             # This aligns with the behavior of model_worker.
             if request_output.finished:
+                logger.info(text_outputs)   # lcw
                 yield (json.dumps({**ret, **{"finish_reason": None}}) + "\0").encode()
             yield (json.dumps(ret) + "\0").encode()
 
@@ -309,5 +307,7 @@ if __name__ == "__main__":
         args.conv_template,
     )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+
+
 
 
