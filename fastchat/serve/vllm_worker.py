@@ -170,7 +170,7 @@ class VLLMWorker(BaseModelWorker):
             # Emit twice here to ensure a 'finish_reason' with empty content in the OpenAI API response.
             # This aligns with the behavior of model_worker.
             if request_output.finished:
-                logger.info(f"Q: {user_question}\nA: {text_outputs}")   # lcw
+                logger.info(f"\n\nQ: {user_question}\nA: {text_outputs}\n")   # lcw
                 yield (json.dumps({**ret, **{"finish_reason": None}}) + "\0").encode()
             yield (json.dumps(ret) + "\0").encode()
 
