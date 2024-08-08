@@ -173,12 +173,12 @@ def extract_last_user_message(text):
     
     last_start = text.rfind(start_tag)
     if last_start == -1:
-        return None  # Start tag not found
+        return "error: no start tag"  # Start tag not found
     
     message_start = last_start + len(start_tag)
     message_end = text.find(end_tag, message_start)
     
     if message_end == -1:
-        return None  # End tag not found
+        return "error: no end tag"  # End tag not found
     
     return text[message_start:message_end]

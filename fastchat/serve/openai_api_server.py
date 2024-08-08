@@ -305,6 +305,7 @@ async def get_gen_params(
         prompt = messages
         images = []
     else:
+        msg_role = None    # lcw
         for message in messages:
             msg_role = message["role"]
             if msg_role == "system":
@@ -333,8 +334,12 @@ async def get_gen_params(
             else:
                 raise ValueError(f"Unknown role: {msg_role}")
 
-        # Add a blank message for the assistant.
-        conv.append_message(conv.roles[1], None)
+        if msg_role == "assistant":
+            # Add a blank message for the user.
+            conv.append_message(conv.roles[0], None)
+        else:
+            # Add a blank message for the assistant.
+            conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
         images = conv.get_images()
 
