@@ -11,6 +11,8 @@ from fastchat.constants import WORKER_HEART_BEAT_INTERVAL
 from fastchat.conversation import Conversation
 from fastchat.utils import pretty_print_semaphore, build_logger
 
+import signal
+import sys
 
 worker = None
 logger = None
@@ -60,6 +62,14 @@ class BaseModelWorker:
         if worker is None:
             worker = self
 
+        # lcw
+        def signal_handler(sig, frame):
+            print('You pressed Ctrl+C! refresh_all_workers')
+            url = self.controller_addr + "/refresh_all_workers"
+            r = requests.post(url)
+            sys.exit(0)
+        signal.signal(signal.SIGINT, signal_handler)
+        
     def make_conv_template(
         self,
         conv_template: str = None,
