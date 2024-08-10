@@ -190,6 +190,7 @@ def acquire_worker_semaphore():
 def create_background_tasks():
     background_tasks = BackgroundTasks()
     background_tasks.add_task(release_worker_semaphore)
+    background_tasks.add_task(worker.send_heart_beat)   # lcw
     return background_tasks
 
 

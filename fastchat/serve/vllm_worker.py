@@ -200,6 +200,7 @@ def create_background_tasks(request_id):
     background_tasks = BackgroundTasks()
     background_tasks.add_task(release_worker_semaphore)
     background_tasks.add_task(abort_request)
+    background_tasks.add_task(worker.send_heart_beat)   # lcw
     return background_tasks
 
 
