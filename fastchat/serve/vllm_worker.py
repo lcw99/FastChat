@@ -199,8 +199,8 @@ def create_background_tasks(request_id):
 
     background_tasks = BackgroundTasks()
     background_tasks.add_task(release_worker_semaphore)
-    background_tasks.add_task(abort_request)
     background_tasks.add_task(worker.send_heart_beat)   # lcw
+    background_tasks.add_task(abort_request)
     return background_tasks
 
 
@@ -225,6 +225,7 @@ async def api_generate(request: Request):
     params["request"] = request
     output = await worker.generate(params)
     release_worker_semaphore()
+    worker.send_heart_beat()
     await engine.abort(request_id)
     return JSONResponse(output)
 

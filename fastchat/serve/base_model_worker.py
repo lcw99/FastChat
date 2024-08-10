@@ -209,6 +209,7 @@ async def api_generate(request: Request):
     await acquire_worker_semaphore()
     output = await asyncio.to_thread(worker.generate_gate, params)
     release_worker_semaphore()
+    worker.send_heart_beat()    #lcw
     return JSONResponse(output)
 
 
