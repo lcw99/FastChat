@@ -232,7 +232,6 @@ async def api_generate(request: Request):
     release_worker_semaphore()
     worker.send_heart_beat()
     await engine.abort(request_id)
-    logger.info(output)
     return JSONResponse(output)
 
 @app.post("/worker_get_status")
