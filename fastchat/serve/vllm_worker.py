@@ -218,6 +218,11 @@ async def api_generate_stream(request: Request):
 
 @app.post("/worker_generate")
 async def api_generate(request: Request):
+    queue_len = worker.get_queue_length()
+    if queue_len > 2:
+        logger.info(queue_len)
+        output = {'text': 'BUSY!', 'error_code': 0, 'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}, 'cumulative_logprob': [None], 'finish_reason': 'stop'}
+        return JSONResponse(output)
     params = await request.json()
     await acquire_worker_semaphore()
     request_id = random_uuid()
@@ -227,8 +232,8 @@ async def api_generate(request: Request):
     release_worker_semaphore()
     worker.send_heart_beat()
     await engine.abort(request_id)
+    logger.info(output)
     return JSONResponse(output)
-
 
 @app.post("/worker_get_status")
 async def api_get_status(request: Request):
