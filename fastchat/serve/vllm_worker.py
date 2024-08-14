@@ -219,9 +219,9 @@ async def api_generate_stream(request: Request):
 @app.post("/worker_generate")
 async def api_generate(request: Request):
     queue_len = worker.get_queue_length()
-    if queue_len > 2:
+    if queue_len >= worker.limit_worker_concurrency:
         logger.info(queue_len)
-        output = {'text': 'BUSY!', 'error_code': 0, 'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}, 'cumulative_logprob': [None], 'finish_reason': 'stop'}
+        output = {'text': 'Sorry! We are busy now.', 'error_code': 0, 'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}, 'cumulative_logprob': [None], 'finish_reason': 'stop'}
         return JSONResponse(output)
     params = await request.json()
     await acquire_worker_semaphore()
