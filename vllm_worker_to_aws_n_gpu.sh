@@ -1,5 +1,8 @@
 #!/bin/bash  
+
 controller_address="http://15.164.140.247:21001"
+
+# Function to handle Ctrl+C
 trap ctrl_c INT
 
 ctrl_c() {
@@ -9,9 +12,31 @@ ctrl_c() {
 }
 
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
-chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)
+
+# Download model name and append $3
+chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)$3
+
+# Get the current IP address of the hostname
 host=$(hostname -I | awk '{print $1}')
+worker_host=$host
+# If IP starts with "192.168.25", change host to "14.54.171.144"
+if [[ $worker_host == 192.168.25* ]]; then
+    worker_host="14.54.171.144"
+fi
+
 port=$1
 echo "chat_model=$chat_model"
 echo "host=$host:$port"
-python -m fastchat.serve.vllm_worker --num-gpus $2 --model-names llama2-ko-chang-instruct-chat --model-path /home/chang/t9/release-models/$chat_model --controller-address $controller_address --worker-address http://$host:$port --port $port --host $host --limit-worker-concurrency 8 --gpu-memory-utilization 0.85 --max-model-len 5000
+
+# Run the Python command with the specified parameters
+python -m fastchat.serve.vllm_worker \
+    --num-gpus $2 \
+    --model-names llama2-ko-chang-instruct-chat \
+    --model-path /home/chang/t9/release-models/$chat_model \
+    --controller-address $controller_address \
+    --worker-address http://$worker_host:$port \
+    --port $port \
+    --host $host \
+    --limit-worker-concurrency 8 \
+    --gpu-memory-utilization 0.85 \
+    --max-model-len 5000
