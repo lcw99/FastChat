@@ -1,5 +1,9 @@
 #!/bin/bash  
 
+port=$1
+num_gpus=$2
+model_attr=$3
+
 controller_address="http://15.164.140.247:21001"
 
 # Function to handle Ctrl+C
@@ -14,7 +18,7 @@ ctrl_c() {
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 # Download model name and append $3
-chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)$3
+chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)$model_attr
 
 # Get the current IP address of the hostname
 host=$(hostname -I | awk '{print $1}')
@@ -24,13 +28,12 @@ if [[ $worker_host == 192.168.25* ]]; then
     worker_host="14.54.171.144"
 fi
 
-port=$1
 echo "chat_model=$chat_model"
 echo "host=$host:$port"
 
 # Run the Python command with the specified parameters
 python -m fastchat.serve.vllm_worker \
-    --num-gpus $2 \
+    --num-gpus num_gpus \
     --model-names llama2-ko-chang-instruct-chat \
     --model-path /home/chang/t9/release-models/$chat_model \
     --controller-address $controller_address \
