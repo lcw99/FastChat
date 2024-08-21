@@ -33,7 +33,7 @@ echo "host=$host:$port"
 
 # Run the Python command with the specified parameters
 python -m fastchat.serve.vllm_worker \
-    --num-gpus num_gpus \
+    --num-gpus $num_gpus \
     --model-names llama2-ko-chang-instruct-chat \
     --model-path /home/chang/t9/release-models/$chat_model \
     --controller-address $controller_address \
