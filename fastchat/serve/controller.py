@@ -204,7 +204,7 @@ class Controller:
                 f"names: {worker_names}, ret: {w_name}"
             )
             logger.info(
-                f"queue_lens: {worker_qlen}"
+                f"queue_lens: {worker_qlen}({min_index})"
             )
             return w_name
         else:
