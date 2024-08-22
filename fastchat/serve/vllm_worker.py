@@ -230,7 +230,7 @@ async def api_generate(request: Request):
     params["request"] = request
     output = await worker.generate(params)
     release_worker_semaphore()
-    worker.send_heart_beat()
+    worker.send_heart_beat()    # lcw
     await engine.abort(request_id)
     return JSONResponse(output)
 
