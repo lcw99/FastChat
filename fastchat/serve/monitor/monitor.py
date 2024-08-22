@@ -18,6 +18,7 @@ import pandas as pd
 import gradio as gr
 import numpy as np
 
+from fastchat.constants import SURVEY_LINK
 from fastchat.serve.monitor.basic_stats import report_basic_stats, get_log_files
 from fastchat.serve.monitor.clean_battle_data import clean_battle_data
 from fastchat.serve.monitor.elo_analysis import report_elo_analysis_results
@@ -45,11 +46,13 @@ def make_default_md_1(mirror=False):
 def make_default_md_2(mirror=False):
     mirror_str = "<span style='color: red; font-weight: bold'>This is a mirror of the live leaderboard created and maintained by the <a href='https://lmsys.org' style='color: red; text-decoration: none;'>LMSYS Organization</a>. Please link to <a href='https://leaderboard.lmsys.org' style='color: #B00020; text-decoration: none;'>leaderboard.lmsys.org</a> for citation purposes.</span>"
     leaderboard_md = f"""
-    {mirror_str if mirror else ""}
-    
-    LMSYS Chatbot Arena is a crowdsourced open platform for LLM evals. We've collected over 1,000,000 human pairwise comparisons to rank LLMs with the Bradley-Terry model and display the model ratings in Elo-scale.
-    You can find more details in our paper. **Chatbot arena is dependent on community participation, please contribute by casting your vote!**
-    """
+{mirror_str if mirror else ""}
+
+LMSYS Chatbot Arena is a crowdsourced open platform for LLM evals. We've collected over 1,000,000 human pairwise comparisons to rank LLMs with the Bradley-Terry model and display the model ratings in Elo-scale.
+You can find more details in our paper. **Chatbot arena is dependent on community participation, please contribute by casting your vote!**
+
+{SURVEY_LINK}
+"""
 
     return leaderboard_md
 
@@ -849,42 +852,43 @@ def build_leaderboard_tab(
                     vision=True,
                     show_plot=show_plot,
                 )
-            with gr.Tab("Arena-Hard-Auto", id=2):
-                dataFrame = arena_hard_process(
-                    leaderboard_table_file, arena_hard_leaderboard
-                )
-                date = dataFrame["date"][0]
-                dataFrame = dataFrame.drop(
-                    columns=["rating_q025", "rating_q975", "date"]
-                )
-                dataFrame["CI"] = dataFrame.CI.map(ast.literal_eval)
-                dataFrame["CI"] = dataFrame.CI.map(lambda x: f"+{x[1]}/-{x[0]}")
-                dataFrame = dataFrame.rename(
-                    columns={
-                        "model": "Model",
-                        "score": "Win-rate",
-                        "CI": "95% CI",
-                        "avg_tokens": "Average Tokens",
-                    }
-                )
-                model_to_score = {}
-                for i in range(len(dataFrame)):
-                    model_to_score[dataFrame.loc[i, "Model"]] = dataFrame.loc[
-                        i, "Win-rate"
-                    ]
-                md = arena_hard_title(date)
-                gr.Markdown(md, elem_id="leaderboard_markdown")
-                gr.DataFrame(
-                    dataFrame,
-                    datatype=[
-                        "markdown" if col == "Model" else "str"
-                        for col in dataFrame.columns
-                    ],
-                    elem_id="arena_hard_leaderboard",
-                    height=800,
-                    wrap=True,
-                    column_widths=[70, 190, 80, 80, 90, 150],
-                )
+            if arena_hard_leaderboard is not None:
+                with gr.Tab("Arena-Hard-Auto", id=2):
+                    dataFrame = arena_hard_process(
+                        leaderboard_table_file, arena_hard_leaderboard
+                    )
+                    date = dataFrame["date"][0]
+                    dataFrame = dataFrame.drop(
+                        columns=["rating_q025", "rating_q975", "date"]
+                    )
+                    dataFrame["CI"] = dataFrame.CI.map(ast.literal_eval)
+                    dataFrame["CI"] = dataFrame.CI.map(lambda x: f"+{x[1]}/-{x[0]}")
+                    dataFrame = dataFrame.rename(
+                        columns={
+                            "model": "Model",
+                            "score": "Win-rate",
+                            "CI": "95% CI",
+                            "avg_tokens": "Average Tokens",
+                        }
+                    )
+                    model_to_score = {}
+                    for i in range(len(dataFrame)):
+                        model_to_score[dataFrame.loc[i, "Model"]] = dataFrame.loc[
+                            i, "Win-rate"
+                        ]
+                    md = arena_hard_title(date)
+                    gr.Markdown(md, elem_id="leaderboard_markdown")
+                    gr.DataFrame(
+                        dataFrame,
+                        datatype=[
+                            "markdown" if col == "Model" else "str"
+                            for col in dataFrame.columns
+                        ],
+                        elem_id="arena_hard_leaderboard",
+                        height=800,
+                        wrap=True,
+                        column_widths=[70, 190, 80, 80, 90, 150],
+                    )
 
             with gr.Tab("Full Leaderboard", id=3):
                 build_full_leaderboard_tab(
