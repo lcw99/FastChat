@@ -196,11 +196,15 @@ class Controller:
                     worker_qlen.append(w_info.queue_length / w_info.speed)
             if len(worker_names) == 0:
                 return ""
-            min_index = np.argmin(worker_qlen)
+            # min_index = np.argmin(worker_qlen) # lcw, random tie break
+            min_index = np.random.choice(np.where(worker_qlen == np.min(worker_qlen))[0])
             w_name = worker_names[min_index]
             self.worker_info[w_name].queue_length += 1
             logger.info(
-                f"names: {worker_names}, queue_lens: {worker_qlen}, ret: {w_name}"
+                f"names: {worker_names}, ret: {w_name}"
+            )
+            logger.info(
+                f"queue_lens: {worker_qlen}"
             )
             return w_name
         else:
