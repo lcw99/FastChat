@@ -170,6 +170,10 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
 def extract_last_user_message(text):
     start_tag = "<|start_header_id|>user<|end_header_id|>"
     end_tag = "<|eot_id|>"
+
+    if "<start_of_turn>" in text:
+        start_tag = "<start_of_turn>user\n"
+        end_tag = "<end_of_turn>"
     
     last_start = text.rfind(start_tag)
     if last_start == -1:
