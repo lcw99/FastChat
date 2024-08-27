@@ -19,8 +19,12 @@ ctrl_c() {
 
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
-# Download model name and append $3
-chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)$model_attr
+# Check if $4 exists and assign it to chat_model, otherwise download model name and append $3
+if [ -n "$4" ]; then
+    chat_model=$4
+else
+    chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)$model_attr
+fi
 
 # Get the current IP address of the hostname
 host=$(hostname -I | awk '{print $1}')
