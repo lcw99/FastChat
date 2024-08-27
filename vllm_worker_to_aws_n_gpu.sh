@@ -44,4 +44,4 @@ python -m fastchat.serve.vllm_worker \
     --host $host \
     --limit-worker-concurrency 8 \
     --gpu-memory-utilization 0.89 \
-    --max-model-len 5000
+    --max-model-len 8000
