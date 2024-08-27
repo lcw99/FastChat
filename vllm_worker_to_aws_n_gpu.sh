@@ -24,6 +24,7 @@ if [ -n "$4" ]; then
     chat_model=$4
 else
     chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)$model_attr
+    chat_model=/home/chang/t9/release-models/$chat_model
 fi
 
 # Get the current IP address of the hostname
@@ -41,7 +42,7 @@ echo "host=$host:$port"
 python -m fastchat.serve.vllm_worker \
     --num-gpus $num_gpus \
     --model-names llama2-ko-chang-instruct-chat \
-    --model-path /home/chang/t9/release-models/$chat_model \
+    --model-path $chat_model \
     --controller-address $controller_address \
     --worker-address http://$worker_host:$port \
     --port $port \
