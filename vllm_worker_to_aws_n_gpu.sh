@@ -5,6 +5,7 @@ num_gpus=$2
 model_attr=$3
 
 export VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
+export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 controller_address="http://15.164.140.247:21001"
 
@@ -12,12 +13,10 @@ controller_address="http://15.164.140.247:21001"
 trap ctrl_c INT
 
 ctrl_c() {
-    echo "Caught Ctrl+C!"
+    echo "Caught Ctrl+C! refrech all worker."
     python -m fastchat.serve.refresh_all_worker --controller-address $controller_address
     exit 1
 }
-
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 # Check if $4 exists and assign it to chat_model, otherwise download model name and append $3
 if [ -n "$4" ]; then
