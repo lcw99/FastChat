@@ -4,7 +4,7 @@ port=$1
 num_gpus=$2
 model_attr=$3
 
-VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
+export VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
 
 controller_address="http://15.164.140.247:21001"
 
