@@ -2091,7 +2091,7 @@ register_conv_template(
         sep_style=SeparatorStyle.GEMMA,
         sep="<end_of_turn>\n",
         stop_str="<end_of_turn>",
-        stop_token_ids=[106, 107]
+        stop_token_ids=[106, 107],
     )
 )
 

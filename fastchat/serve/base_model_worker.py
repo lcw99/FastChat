@@ -58,7 +58,7 @@ class BaseModelWorker:
             logger = build_logger("model_worker", f"model_worker_{self.worker_id}.log")
         if worker is None:
             worker = self
-        
+
     def make_conv_template(
         self,
         conv_template: str = None,
@@ -189,7 +189,7 @@ def acquire_worker_semaphore():
 def create_background_tasks():
     background_tasks = BackgroundTasks()
     background_tasks.add_task(release_worker_semaphore)
-    background_tasks.add_task(worker.send_heart_beat)   # lcw
+    background_tasks.add_task(worker.send_heart_beat)  # lcw
     return background_tasks
 
 
@@ -208,7 +208,7 @@ async def api_generate(request: Request):
     await acquire_worker_semaphore()
     output = await asyncio.to_thread(worker.generate_gate, params)
     release_worker_semaphore()
-    worker.send_heart_beat()    #lcw
+    worker.send_heart_beat()  # lcw
     return JSONResponse(output)
 
 

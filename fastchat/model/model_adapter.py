@@ -89,7 +89,9 @@ OPENAI_MODEL_LIST = (
 )
 
 from fastchat.utils import build_logger
+
 logger = build_logger("openai_api_server", "openai_api_server.log")
+
 
 class BaseModelAdapter:
     """The base and the default model adapter."""
@@ -1590,6 +1592,7 @@ class Llama3Adapter(BaseModelAdapter):
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("llama-3")
 
+
 class Aya23Adapter(BaseModelAdapter):
     """The model adapter for aya-23"""
 
@@ -1604,7 +1607,8 @@ class Aya23Adapter(BaseModelAdapter):
 
     def get_default_conv_template(self, model_path: str) -> Conversation:
         return get_conv_template("aya-23")
-    
+
+
 class CuteGPTAdapter(BaseModelAdapter):
     """The model adapter for CuteGPT"""
 
@@ -2075,14 +2079,14 @@ class Llama2ChangAdapter(Llama2Adapter):
     def get_default_conv_template(self, model_path: str) -> Conversation:
         print("loading polyglot_changgpt...")
         return get_conv_template("polyglot_changgpt")
-    
+
     def load_compress_model(self, model_path, device, torch_dtype, revision="main"):
         print("loading compressed model...")
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="fp4",
-            bnb_4bit_compute_dtype=torch.float16
+            bnb_4bit_compute_dtype=torch.float16,
         )
         tokenizer = AutoTokenizer.from_pretrained(
             model_path,
@@ -2091,10 +2095,10 @@ class Llama2ChangAdapter(Llama2Adapter):
             trust_remote_code=True,
         )
         model = AutoModelForCausalLM.from_pretrained(
-            model_path, 
-            quantization_config=bnb_config
+            model_path, quantization_config=bnb_config
         )
         return model, tokenizer
+
 
 class YanoljaAdapter(Llama2Adapter):
     """The model adapter for solar-yanolja"""
@@ -2105,14 +2109,14 @@ class YanoljaAdapter(Llama2Adapter):
     def get_default_conv_template(self, model_path: str) -> Conversation:
         print("\n\n....loading yanolja_changgpt....")
         return get_conv_template("yanolja_changgpt")
-    
+
     def load_compress_model(self, model_path, device, torch_dtype, revision="main"):
         print("loading compressed model...")
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="fp4",
-            bnb_4bit_compute_dtype=torch.float16
+            bnb_4bit_compute_dtype=torch.float16,
         )
         tokenizer = AutoTokenizer.from_pretrained(
             model_path,
@@ -2121,11 +2125,10 @@ class YanoljaAdapter(Llama2Adapter):
             trust_remote_code=True,
         )
         model = AutoModelForCausalLM.from_pretrained(
-            model_path, 
-            quantization_config=bnb_config,
-            load_in_4bit=True
+            model_path, quantization_config=bnb_config, load_in_4bit=True
         )
         return model, tokenizer
+
 
 class ZephyrAdapter(BaseModelAdapter):
     """The model adapter for Zephyr (e.g. HuggingFaceH4/zephyr-7b-alpha)"""

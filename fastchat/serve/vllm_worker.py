@@ -64,16 +64,16 @@ class VLLMWorker(BaseModelWorker):
         if not no_register:
             self.init_heart_beat()
 
-
     async def generate_stream(self, params):
         self.call_ct += 1
 
         context = params.pop("prompt")
-        
+
         from fastchat.serve.lcw import extract_last_user_message
+
         user_question = extract_last_user_message(context).strip()
         # logger.info(user_question)    # lcw
-        
+
         request_id = params.pop("request_id")
         temperature = float(params.get("temperature", 1.0))
         top_p = float(params.get("top_p", 1.0))
@@ -170,7 +170,7 @@ class VLLMWorker(BaseModelWorker):
             # Emit twice here to ensure a 'finish_reason' with empty content in the OpenAI API response.
             # This aligns with the behavior of model_worker.
             if request_output.finished:
-                logger.info(f"\n\nQ: {user_question}\nA: {text_outputs}\n")   # lcw
+                logger.info(f"\n\nQ: {user_question}\nA: {text_outputs}\n")  # lcw
                 yield (json.dumps({**ret, **{"finish_reason": None}}) + "\0").encode()
             yield (json.dumps(ret) + "\0").encode()
 
@@ -199,7 +199,7 @@ def create_background_tasks(request_id):
 
     background_tasks = BackgroundTasks()
     background_tasks.add_task(release_worker_semaphore)
-    background_tasks.add_task(worker.send_heart_beat)   # lcw
+    background_tasks.add_task(worker.send_heart_beat)  # lcw
     background_tasks.add_task(abort_request)
     return background_tasks
 
@@ -221,7 +221,13 @@ async def api_generate(request: Request):
     queue_len = worker.get_queue_length()
     if queue_len >= worker.limit_worker_concurrency:
         logger.info(queue_len)
-        output = {'text': 'Sorry! We are busy now.', 'error_code': 0, 'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0}, 'cumulative_logprob': [None], 'finish_reason': 'stop'}
+        output = {
+            "text": "Sorry! We are busy now.",
+            "error_code": 0,
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "cumulative_logprob": [None],
+            "finish_reason": "stop",
+        }
         return JSONResponse(output)
     params = await request.json()
     await acquire_worker_semaphore()
@@ -230,9 +236,10 @@ async def api_generate(request: Request):
     params["request"] = request
     output = await worker.generate(params)
     release_worker_semaphore()
-    worker.send_heart_beat()    # lcw
+    worker.send_heart_beat()  # lcw
     await engine.abort(request_id)
     return JSONResponse(output)
+
 
 @app.post("/worker_get_status")
 async def api_get_status(request: Request):
@@ -314,7 +321,3 @@ if __name__ == "__main__":
         args.conv_template,
     )
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
-
-
-
-

@@ -44,12 +44,15 @@ from fastchat.utils import is_partial_stop, is_sentence_complete, get_context_le
 # lcw
 from transformers import LogitsProcessor
 
+
 class PromptFocusedLogitsProcessor(LogitsProcessor):
     def __init__(self, prompt_token_ids, focus_factor=1.0):
         self.prompt_token_ids = set(prompt_token_ids)
         self.focus_factor = focus_factor
 
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
+    def __call__(
+        self, input_ids: torch.LongTensor, scores: torch.FloatTensor
+    ) -> torch.FloatTensor:
         # Create a mask to identify prompt tokens
         prompt_mask = torch.ones_like(scores, dtype=torch.float)
         prompt_mask[:, list(self.prompt_token_ids)] = self.focus_factor
@@ -59,8 +62,13 @@ class PromptFocusedLogitsProcessor(LogitsProcessor):
 
         return scores
 
+
 def prepare_logits_processor(
-    temperature: float, repetition_penalty: float, top_p: float, top_k: int, prompt_token_ids
+    temperature: float,
+    repetition_penalty: float,
+    top_p: float,
+    top_k: int,
+    prompt_token_ids,
 ) -> LogitsProcessorList:
     processor_list = LogitsProcessorList()
     # TemperatureLogitsWarper doesn't accept 0.0, 1.0 makes it a no-op so we skip two cases.
@@ -75,7 +83,7 @@ def prepare_logits_processor(
     # lcw
     # if prompt_token_ids is not None:
     #     processor_list.append(PromptFocusedLogitsProcessor(prompt_token_ids, 1.01))
-    
+
     return processor_list
 
 
@@ -109,8 +117,7 @@ def generate_stream(
 
     input_ids = tokenizer(prompt).input_ids
     logits_processor = prepare_logits_processor(
-        temperature, repetition_penalty, top_p, top_k, 
-        input_ids
+        temperature, repetition_penalty, top_p, top_k, input_ids
     )
 
     if model.config.is_encoder_decoder:
@@ -140,12 +147,12 @@ def generate_stream(
     token_logprobs = [None]  # The first token has no logprobs.
     sent_interrupt = False
     finish_reason = None
-    
-    #lcw
+
+    # lcw
     start = time.time()
     prev_ch = None
     repeat_count = 0
-    
+
     stopped = False
     for i in range(max_new_tokens):
         if i == 0:  # prefill
@@ -244,7 +251,7 @@ def generate_stream(
             repeat_count = 0
         prev_ch = ch
         if repeat_count > 5:
-            stopped = True 
+            stopped = True
         if stopped:
             print(f"{token}.{ch}.{stop_token_ids}")
 
@@ -343,7 +350,7 @@ def generate_stream(
     if stopped:
         finish_reason = "stop"
 
-    #lcw
+    # lcw
     duration = time.time() - start
     tps = round(i / duration, 2)
     print(f"token = {i}, duration = {int(duration)}, tps = {tps}, fr = {finish_reason}")

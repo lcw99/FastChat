@@ -7,10 +7,17 @@ from fastchat.constants import (
     ErrorCode,
 )
 
-from fastchat.serve.openai_api_server import get_worker_address, get_gen_params, create_error_response, fetch_remote
+from fastchat.serve.openai_api_server import (
+    get_worker_address,
+    get_gen_params,
+    create_error_response,
+    fetch_remote,
+)
 
 from fastchat.utils import build_logger
+
 logger = build_logger("openai_api_server", "openai_api_server.log")
+
 
 async def get_token_length(request, prompt, worker_addr):
     token_num = await fetch_remote(
@@ -27,6 +34,7 @@ async def get_context_length(request, worker_addr):
     )
     return context_len
 
+
 async def lcw_process(request: ChatCompletionRequest, worker_addr):
     MAX_NUM_MESSAGES = 12
     MAX_CONTEXT_LENGTH = 8000
@@ -34,12 +42,12 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
     full_conv = "\n".join([json.dumps(m, ensure_ascii=False) for m in request.messages])
     messages = request.messages
     system_message = messages.pop(0)
-    
+
     conv_file_path = None
     user_id = ""
     if request.user is not None and "|" in request.user:
         uu = request.user.split("|")
-        if uu[0] == "vote":     # "vote|up/down|user_id|chat_id"
+        if uu[0] == "vote":  # "vote|up/down|user_id|chat_id"
             newpath = f"{Path.home()}/log/saju-vote/{uu[1]}/{uu[2]}"
             if not os.path.exists(newpath):
                 os.makedirs(newpath)
@@ -48,7 +56,7 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
             with open(vote_file_path, "w") as f:
                 f.write(full_conv)
             return "stop"
-            
+
         user_id = uu[1]
         menu_title = ""
         if len(uu) > 2:
@@ -61,20 +69,20 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
         conv_file_path = os.path.join(newpath, file_name)
         with open(conv_file_path, "w") as f:
             f.write(full_conv)
-        logger.info(f"{user_id=}, {menu_title=}")    
-    
+        logger.info(f"{user_id=}, {menu_title=}")
+
     context_length = (await get_context_length(request, worker_addr)) - 128
     if context_length > MAX_CONTEXT_LENGTH:
         context_length = MAX_CONTEXT_LENGTH
     if len(messages) > MAX_NUM_MESSAGES:
         messages = messages[-MAX_NUM_MESSAGES:]
-        
+
     # compact assistant message
     for idx in range(len(messages)):
-        messages[idx]['content'] = messages[idx]['content'].strip()
+        messages[idx]["content"] = messages[idx]["content"].strip()
         m = messages[idx]
-        content = m['content'].strip()
-        if m['role'] == 'assistant' and len(content) > 500:
+        content = m["content"].strip()
+        if m["role"] == "assistant" and len(content) > 500:
             cc = content.split(".")
             i = 0
             begin = ""
@@ -88,20 +96,11 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
                 if len(cc[i]) > 0:
                     end = cc[i] + "." + end
                 i -= 1
-            messages[idx]['content'] = (begin + end).replace("\n\n", "\n")
-            # messages[i]['content'] = content[:100] + "..." + content[-100:]
-            # logger.info(f"compacted={messages[i]['content']}")
-            
-    # if len(messages) > 6:
-    #     messages.insert(len(messages) - 1, {"role": "user", "content": "상기 대화 보다는 맨앞 운세 자료를 기반으로 아래 질문에 답변해."})
+            messages[idx]["content"] = (begin + end).replace("\n\n", "\n")
 
     messages.insert(0, system_message)
-    # if "ChangGPT" not in system_message["content"] and "SajuGPT" not in system_message["content"]:
-    #     messages[-1]["content"] = messages[-1]["content"].replace("사주", "운세[사주]")
-        # messages[-1]["content"] += "(내 운명이 걸린 일이니 위 사주를 분석하여 답변하세요)"
-        
 
-    logger.info(f"{request.max_tokens=}")
+    logger.info(f"{request.max_tokens=}, {context_length=}")
     request.messages = messages
     max_tokens = request.max_tokens
     if not request.max_tokens:
@@ -123,13 +122,16 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
         input_length = await get_token_length(
             request, gen_params["prompt"], worker_addr
         )
-        logger.info(f"{input_length=}\n{max_tokens=}\n{len(messages)=}")
+        logger.info(
+            f"{context_length=}, {input_length=}, {max_tokens=}, {len(messages)=}"
+        )
         if input_length + max_tokens > context_length:
             if len(messages) == 2:
                 return create_error_response(
                     ErrorCode.INTERNAL_ERROR, "message too long."
                 )
             else:
+                logger.info("pop first message")
                 messages.pop(1)
         else:
             max_tokens = context_length - (input_length + 96)
@@ -163,8 +165,7 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
     logger.info(f"max_new_tokens={gen_params['max_new_tokens']}")
     logger.info(f"{request.temperature=}, {request.top_p=}")
 
-
-    return conv_file_path         
+    return conv_file_path
 
 
 def extract_last_user_message(text):
@@ -174,20 +175,21 @@ def extract_last_user_message(text):
     if "<start_of_turn>" in text:
         start_tag = "<start_of_turn>user\n"
         end_tag = "<end_of_turn>"
-    
+
     last_start = text.rfind(start_tag)
     if last_start == -1:
         return "error: no start tag"  # Start tag not found
-    
+
     message_start = last_start + len(start_tag)
     message_end = text.find(end_tag, message_start)
-    
+
     if message_end == -1:
         # Find the second-to-last start tag
         second_last_start = text.rfind(start_tag, 0, last_start)
         if second_last_start == -1:
             return "error: no second-to-last start tag"  # Second-to-last start tag not found
-        return text[second_last_start + len(start_tag):last_start].strip()  # Return everything from the last start tag to the end
-    
-    return text[message_start:message_end]
+        return text[
+            second_last_start + len(start_tag) : last_start
+        ].strip()  # Return everything from the last start tag to the end
 
+    return text[message_start:message_end]

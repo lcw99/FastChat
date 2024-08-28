@@ -305,7 +305,7 @@ async def get_gen_params(
         prompt = messages
         images = []
     else:
-        msg_role = None    # lcw
+        msg_role = None  # lcw
         for message in messages:
             msg_role = message["role"]
             if msg_role == "system":
@@ -452,6 +452,7 @@ class MyStreamingResponse(StreamingResponse):
                 await self.callback()
                 break
 
+
 @app.post("/v1/chat/completions", dependencies=[Depends(check_api_key)])
 async def create_chat_completion(request: ChatCompletionRequest):
     """Creates a completion for the chat message"""
@@ -465,11 +466,11 @@ async def create_chat_completion(request: ChatCompletionRequest):
     worker_addr = await get_worker_address(request.model)
 
     # lcw
-    logger.info(request.messages)
+    # logger.info(request.messages)
     system_message = request.messages[0]
-    if system_message['role'] == "system" and "||" in system_message['content']:
-        ss = system_message['content'].split("||")
-        system_message['content'] = ss[0]
+    if system_message["role"] == "system" and "||" in system_message["content"]:
+        ss = system_message["content"].split("||")
+        system_message["content"] = ss[0]
         request.messages[0] = system_message
         message_str = ss[1]
         if "{" in message_str[1:]:
@@ -495,10 +496,11 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     # call lcw converation log
     from fastchat.serve.lcw import lcw_process
+
     conv_file_path = await lcw_process(request, worker_addr)
     if conv_file_path == "stop":
         return error_check_ret
-    
+
     max_new_tokens, error_check_ret = await check_length(
         request,
         gen_params["prompt"],
@@ -637,8 +639,8 @@ async def chat_completion_stream_generator(
     # lcw
     prompt = gen_params["prompt"]
     # q = prompt.splitlines()[-2]
-    logger.info(colored(f"\n{prompt}", on_color="on_green"))
-    logger.info(f"{assistant.strip()}")
+    # logger.info(colored(f"\n{prompt}", on_color="on_green"))
+    # logger.info(f"{assistant.strip()}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
         with open(conv_file_path, "a") as f:
@@ -1047,4 +1049,3 @@ if __name__ == "__main__":
         )
     else:
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")
-        
