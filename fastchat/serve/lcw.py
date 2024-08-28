@@ -78,7 +78,7 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
         messages = messages[-MAX_NUM_MESSAGES:]
 
     # compact assistant message
-    for idx in range(len(messages)):
+    for idx in range(len(messages[:-2])):
         messages[idx]["content"] = messages[idx]["content"].strip()
         m = messages[idx]
         content = m["content"].strip()
