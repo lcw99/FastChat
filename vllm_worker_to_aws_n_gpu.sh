@@ -46,6 +46,6 @@ python -m fastchat.serve.vllm_worker \
     --worker-address http://$worker_host:$port \
     --port $port \
     --host $host \
-    --limit-worker-concurrency 10 \
+    --limit-worker-concurrency 8 \
     --gpu-memory-utilization 0.89 \
     --max-model-len 8000
