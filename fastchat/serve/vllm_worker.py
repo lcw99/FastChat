@@ -218,6 +218,11 @@ async def api_generate_stream(request: Request):
 
 @app.post("/worker_generate")
 async def api_generate(request: Request):
+    params = await request.json()
+    await acquire_worker_semaphore()
+    request_id = random_uuid()
+    params["request_id"] = request_id
+    params["request"] = request
     queue_len = worker.get_queue_length()
     if queue_len >= worker.limit_worker_concurrency:    # lcw
         logger.info(queue_len)
@@ -228,13 +233,8 @@ async def api_generate(request: Request):
             "cumulative_logprob": [None],
             "finish_reason": "stop",
         }
-        return JSONResponse(output)
-    params = await request.json()
-    await acquire_worker_semaphore()
-    request_id = random_uuid()
-    params["request_id"] = request_id
-    params["request"] = request
-    output = await worker.generate(params)
+    else:
+        output = await worker.generate(params)
     release_worker_semaphore()
     worker.send_heart_beat()  # lcw
     await engine.abort(request_id)
