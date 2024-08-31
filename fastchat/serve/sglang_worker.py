@@ -225,6 +225,19 @@ async def api_generate_stream(request: Request):
 
 @app.post("/worker_generate")
 async def api_generate(request: Request):
+    queue_len = worker.get_queue_length()
+    if queue_len >= worker.limit_worker_concurrency:    # lcw
+        logger.info(queue_len)
+        output = {
+                "text": "Sorry! We are busy now!",
+                "usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                },
+                "error_code": 0,
+            }
+        return JSONResponse(output)
     params = await request.json()
     await acquire_worker_semaphore()
     output = await worker.generate_gate(params)
