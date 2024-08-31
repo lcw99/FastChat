@@ -27,6 +27,7 @@ from fastchat.serve.model_worker import (
 )
 from fastchat.utils import get_context_length, is_partial_stop
 
+# lcw monkey patch, force=True cause logger recurssion.
 import logging
 def configure_logger(server_args, prefix: str = ""):
     format = f"[%(asctime)s{prefix}] %(message)s"
