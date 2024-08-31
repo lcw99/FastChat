@@ -34,6 +34,7 @@ localtools/
 *.sh
 !vllm_worker_to_aws_n_gpu.sh
 !killall.sh
+!sgl_worker_to.74.sh
 # Image data
 serve_images
 val2014
