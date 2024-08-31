@@ -224,7 +224,7 @@ async def api_generate(request: Request):
     params["request_id"] = request_id
     params["request"] = request
     queue_len = worker.get_queue_length()
-    if queue_len >= worker.limit_worker_concurrency:    # lcw
+    if queue_len >= int(worker.limit_worker_concurrency/2):    # lcw
         logger.info(queue_len)
         output = {
             "text": "Sorry! We are busy now.",

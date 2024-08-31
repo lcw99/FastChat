@@ -43,6 +43,6 @@ python -m fastchat.serve.sglang_worker \
     --worker-address http://$worker_host:$port \
     --port $port \
     --host $host \
-    --limit-worker-concurrency 5 \
+    --limit-worker-concurrency 10 \
     --mem-fraction-static 0.7 
     
