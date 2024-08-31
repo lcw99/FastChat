@@ -27,6 +27,17 @@ from fastchat.serve.model_worker import (
 )
 from fastchat.utils import get_context_length, is_partial_stop
 
+import logging
+def configure_logger(server_args, prefix: str = ""):
+    format = f"[%(asctime)s{prefix}] %(message)s"
+    logging.basicConfig(
+        level=getattr(logging, server_args.log_level.upper()),
+        format=format,
+        datefmt="%H:%M:%S",
+        force=False,
+    )
+sgl.srt.utils.configure_logger = configure_logger
+
 app = FastAPI()
 
 
