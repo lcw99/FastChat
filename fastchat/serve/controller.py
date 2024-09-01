@@ -301,7 +301,9 @@ async def register_worker(request: Request):
 @app.post("/unregister_worker")
 async def unregister_worker(request: Request):
     data = await request.json()
-    controller.remove_worker(data["worker_name"])
+    worker_name = data["worker_name"]
+    controller.remove_worker(worker_name)
+    requests.post(worker_name + "/worker_stop_auto_register", timeout=5)
 
 
 @app.post("/refresh_all_workers")

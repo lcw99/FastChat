@@ -252,6 +252,12 @@ async def api_get_status(request: Request):
     return worker.get_status()
 
 
+@app.post("/worker_stop_auto_register")
+async def api_stop_auto_register(request: Request):
+    worker.auto_register = False
+    return {"status": "ok"}
+
+
 @app.post("/count_token")
 async def api_count_token(request: Request):
     params = await request.json()

@@ -51,6 +51,7 @@ class BaseModelWorker:
         self.context_len = None
         self.call_ct = 0
         self.semaphore = None
+        self.auto_register = True
 
         self.heart_beat_thread = None
 
@@ -124,7 +125,7 @@ class BaseModelWorker:
                 logger.error(f"heart beat error: {e}")
             time.sleep(5)
 
-        if not exist:
+        if not exist and self.auto_register:
             self.register_to_controller()
 
     def get_queue_length(self):
@@ -224,6 +225,12 @@ async def api_get_embeddings(request: Request):
 @app.post("/worker_get_status")
 async def api_get_status(request: Request):
     return worker.get_status()
+
+
+@app.post("/worker_stop_auto_register")
+async def api_stop_auto_register(request: Request):
+    worker.auto_register = False
+    return {"status": "ok"}
 
 
 @app.post("/count_token")
