@@ -203,7 +203,7 @@ class Controller:
             w_name = worker_names[min_index]
             self.worker_info[w_name].queue_length += 1
             logger.info(f"names: {worker_names}, ret: {w_name}")
-            logger.info(f"queue_lens: {worker_qlen}({min_index})")
+            logger.info(f"queue_lens: {worker_qlen}({min_index}:{sum(worker_qlen)})")
             return w_name
         else:
             raise ValueError(f"Invalid dispatch method: {self.dispatch_method}")
