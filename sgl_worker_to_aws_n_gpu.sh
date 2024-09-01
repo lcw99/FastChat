@@ -44,5 +44,4 @@ python -m fastchat.serve.sglang_worker \
     --port $port \
     --host $host \
     --limit-worker-concurrency 8 \
-    --mem-fraction-static 0.7 
-    
+    --mem-fraction-static 0.6    
