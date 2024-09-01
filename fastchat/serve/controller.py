@@ -296,6 +296,12 @@ async def register_worker(request: Request):
         data.get("worker_status", None),
         data.get("multimodal", False),
     )
+    
+
+@app.post("/unregister_worker")
+async def unregister_worker(request: Request):
+    data = await request.json()
+    controller.remove_worker(data["worker_name"])
 
 
 @app.post("/refresh_all_workers")
