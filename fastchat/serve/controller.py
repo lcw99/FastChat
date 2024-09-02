@@ -206,7 +206,8 @@ class Controller:
             worker_list = ' '.join(f'{q:1.0f}' for q in worker_qlen)
             worker_sum = sum(worker_qlen)
             worker_avg = worker_sum / len(worker_qlen)
-            logger.info(f"queue_lens: {worker_avg:2.1f} {worker_sum:2.0f} [{worker_list}]({min_index})")
+            worker_bar = "█" * int(worker_avg * 2)
+            logger.info(f"queue_lens: {worker_avg:2.1f} {worker_sum:2.0f} [{worker_list}]({min_index}) {worker_bar}")
             return w_name
         else:
             raise ValueError(f"Invalid dispatch method: {self.dispatch_method}")
