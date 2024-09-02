@@ -204,7 +204,9 @@ class Controller:
             self.worker_info[w_name].queue_length += 1
             logger.info(f"names: {worker_names}, ret: {w_name}")
             worker_list = ' '.join(f'{q:1.0f}' for q in worker_qlen)
-            logger.info(f"queue_lens: {int(sum(worker_qlen)):2d} [{worker_list}]({min_index})")
+            worker_sum = sum(worker_qlen)
+            worker_avg = worker_sum / len(worker_qlen)
+            logger.info(f"queue_lens: {worker_avg:2.1f} {worker_sum:2.0f} [{worker_list}]({min_index})")
             return w_name
         else:
             raise ValueError(f"Invalid dispatch method: {self.dispatch_method}")
