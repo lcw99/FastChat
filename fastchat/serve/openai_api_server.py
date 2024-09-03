@@ -410,7 +410,7 @@ async def get_conv(model_name: str, worker_addr: str):
 @app.get("/v1/models", dependencies=[Depends(check_api_key)])
 async def show_available_models():
     controller_address = app_settings.controller_address
-    ret = await fetch_remote(controller_address + "/refresh_all_workers")
+    # ret = await fetch_remote(controller_address + "/refresh_all_workers") # lcw
     models = await fetch_remote(controller_address + "/list_models", None, "models")
 
     models.sort()
