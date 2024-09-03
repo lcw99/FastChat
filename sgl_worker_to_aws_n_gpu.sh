@@ -77,7 +77,7 @@ echo "mem_fraction_static=$mem_fraction_static"
 # Run the Python command with the specified parameters
 python -m fastchat.serve.sglang_worker \
     --num-gpus $num_gpus \
-    --model-names llama2-ko-chang-instruct-chat \
+    --model-names llama2-ko-chang-instruct-chat,stargio-saju-chat \
     --model-path $chat_model \
     --controller-address $controller_address \
     --worker-address http://$worker_host:$port \
