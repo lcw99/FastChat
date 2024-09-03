@@ -115,7 +115,8 @@ class Controller:
         return r.json()
 
     def remove_worker(self, worker_name: str):
-        del self.worker_info[worker_name]
+        if worker_name in self.worker_info:
+            del self.worker_info[worker_name]
 
     def refresh_all_workers(self):
         old_info = dict(self.worker_info)
