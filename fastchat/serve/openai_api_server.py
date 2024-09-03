@@ -480,6 +480,10 @@ async def create_chat_completion(request: ChatCompletionRequest):
                     mm = m.split("}")
                     request.messages.insert(1, {"role": mm[0], "content": mm[1]})
 
+    # call lcw converation log
+    from fastchat.serve.lcw import lcw_process
+    conv_file_path = await lcw_process(request, worker_addr)
+    
     gen_params = await get_gen_params(
         request.model,
         worker_addr,
@@ -494,10 +498,6 @@ async def create_chat_completion(request: ChatCompletionRequest):
         stop=request.stop,
     )
 
-    # call lcw converation log
-    from fastchat.serve.lcw import lcw_process
-
-    conv_file_path = await lcw_process(request, worker_addr)
     if conv_file_path == "stop":
         return error_check_ret
 
