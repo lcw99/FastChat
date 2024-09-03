@@ -153,10 +153,12 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
 
 
 def extract_last_user_message(text):
+    tag_type = "llama"
     start_tag = "<|start_header_id|>user<|end_header_id|>"
     end_tag = "<|eot_id|>"
 
     if "<start_of_turn>" in text:
+        tag_type = "gemma"
         start_tag = "<start_of_turn>user\n"
         end_tag = "<end_of_turn>"
 
@@ -176,4 +178,4 @@ def extract_last_user_message(text):
             second_last_start + len(start_tag) : last_start
         ].strip()  # Return everything from the last start tag to the end
 
-    return text[message_start:message_end]
+    return tag_type + " " + text[message_start:message_end]
