@@ -311,8 +311,10 @@ async def unregister_worker(request: Request):
     data = await request.json()
     worker_name = data["worker_name"]
     controller.remove_worker(worker_name)
-    requests.post(worker_name + "/worker_stop_auto_register", timeout=5)
-
+    try:
+        r = requests.post(worker_name + "/worker_stop_auto_register", timeout=5)
+    except requests.exceptions.RequestException as e:
+        logger.error(f"worker_stop_auto_register failed: {worker_name}, {e}")
 
 @app.post("/refresh_all_workers")
 async def refresh_all_workers():
