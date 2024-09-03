@@ -145,26 +145,10 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
 
     request.messages = messages
     # request.max_tokens = max_tokens
-    gen_params = await get_gen_params(
-        request.model,
-        worker_addr,
-        messages,
-        temperature=request.temperature,
-        top_p=request.top_p,
-        top_k=request.top_k,
-        presence_penalty=request.presence_penalty,
-        frequency_penalty=request.frequency_penalty,
-        max_tokens=max_tokens,
-        echo=False,
-        stop=request.stop,
-    )
-
-    # print(messages)
-    print(gen_params["prompt"])
+    
     logger.info(f"after calc {max_tokens=} {input_length=} {context_length=}")
-    logger.info(f"max_new_tokens={gen_params['max_new_tokens']}")
     logger.info(f"{request.temperature=}, {request.top_p=}")
-
+    
     return conv_file_path
 
 

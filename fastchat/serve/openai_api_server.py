@@ -481,7 +481,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
                     request.messages.insert(1, {"role": mm[0], "content": mm[1]})
 
     # call lcw converation log
-    from fastchat.serve.lcw import lcw_process
+    from fastchat.serve.lcw import lcw_process, extract_last_user_message
     conv_file_path = await lcw_process(request, worker_addr)
     
     gen_params = await get_gen_params(
@@ -513,6 +513,11 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     gen_params["max_new_tokens"] = max_new_tokens
 
+    # lcw
+    # logger.info(gen_params["prompt"])
+    logger.info(f"Q: {extract_last_user_message(gen_params['prompt']).strip()}")
+    logger.info(f"max_new_tokens={gen_params['max_new_tokens']}")
+    
     if request.stream:
         client = httpx.AsyncClient()
         generator = chat_completion_stream_generator(
