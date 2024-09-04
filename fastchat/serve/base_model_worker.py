@@ -52,6 +52,7 @@ class BaseModelWorker:
         self.call_ct = 0
         self.semaphore = None
         self.auto_register = True
+        self.idle = True
 
         self.heart_beat_thread = None
 
@@ -107,6 +108,11 @@ class BaseModelWorker:
             f"worker_id: {self.worker_id}. "
         )
 
+        # lcw
+        if worker.idle:
+            self.semaphore = None
+        worker.idle = True
+        
         url = self.controller_addr + "/receive_heart_beat"
 
         while True:
@@ -184,6 +190,7 @@ def release_worker_semaphore():
 def acquire_worker_semaphore():
     if worker.semaphore is None:
         worker.semaphore = asyncio.Semaphore(worker.limit_worker_concurrency)
+    worker.idle = False
     return worker.semaphore.acquire()
 
 

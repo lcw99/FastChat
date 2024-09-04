@@ -335,6 +335,7 @@ if __name__ == "__main__":
         mem_fraction_static=args.mem_fraction_static,
         tp_size=args.tp_size,
         enable_p2p_check=True,
+        enable_torch_compile=True,
     )
     sgl.set_default_backend(runtime)
 
