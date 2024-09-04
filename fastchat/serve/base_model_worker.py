@@ -19,7 +19,16 @@ app = FastAPI()
 
 def heart_beat_worker(obj):
     while True:
+        obj.idle = True # lcw
+
         time.sleep(WORKER_HEART_BEAT_INTERVAL)
+
+        if obj.idle and obj.get_queue_length() > 0:
+            logger.info("worker idle. reset semaphore")
+            obj.semaphore = asyncio.Semaphore(worker.limit_worker_concurrency)
+            
+        obj.idle = True
+        
         obj.send_heart_beat()
 
 
@@ -52,7 +61,7 @@ class BaseModelWorker:
         self.call_ct = 0
         self.semaphore = None
         self.auto_register = True
-        self.idle = True
+        self.idle = True    # lcw
 
         self.heart_beat_thread = None
 
@@ -108,24 +117,21 @@ class BaseModelWorker:
             f"worker_id: {self.worker_id}. "
         )
 
-        # lcw
-        # if worker.idle:
-        #     self.semaphore = None
-        # worker.idle = True
-        
         url = self.controller_addr + "/receive_heart_beat"
 
         while True:
             try:
+                data = {
+                    "worker_name": self.worker_addr,
+                    "queue_length": self.get_queue_length(),
+                }
                 ret = requests.post(
                     url,
-                    json={
-                        "worker_name": self.worker_addr,
-                        "queue_length": self.get_queue_length(),
-                    },
+                    json=data,
                     timeout=5,
                 )
                 exist = ret.json()["exist"]
+                logger.info(f"heart beat: {data} worker exist: {exist}")
                 break
             except (requests.exceptions.RequestException, KeyError) as e:
                 logger.error(f"heart beat error: {e}")
