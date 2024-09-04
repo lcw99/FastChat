@@ -109,9 +109,9 @@ class BaseModelWorker:
         )
 
         # lcw
-        if worker.idle:
-            self.semaphore = None
-        worker.idle = True
+        # if worker.idle:
+        #     self.semaphore = None
+        # worker.idle = True
         
         url = self.controller_addr + "/receive_heart_beat"
 
