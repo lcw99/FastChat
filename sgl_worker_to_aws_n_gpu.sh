@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export TORCHINDUCTOR_FX_GRAPH_CACHE=1
+
 # Function to handle Ctrl+C
 trap ctrl_c INT
 ctrl_c() {
