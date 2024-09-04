@@ -190,6 +190,7 @@ def release_worker_semaphore():
 def acquire_worker_semaphore():
     if worker.semaphore is None:
         worker.semaphore = asyncio.Semaphore(worker.limit_worker_concurrency)
+    worker.idle = False
     return worker.semaphore.acquire()
 
 
