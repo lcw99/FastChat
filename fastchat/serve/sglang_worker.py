@@ -320,6 +320,7 @@ if __name__ == "__main__":
         default=False,
         help="Register this worker as serving a multimodal model.",
     )
+    parser.add_argument("--enable-torch-compile", action="store_true", default=False)
 
     args = parser.parse_args()
 
@@ -336,7 +337,7 @@ if __name__ == "__main__":
         mem_fraction_static=args.mem_fraction_static,
         tp_size=args.tp_size,
         enable_p2p_check=True,
-        enable_torch_compile=True,
+        enable_torch_compile=args.enable_torch_compile,
     )
     sgl.set_default_backend(runtime)
 

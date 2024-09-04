@@ -17,6 +17,7 @@ model_attr=""
 chat_model=""
 controller_address="http://15.164.140.247:21001"
 mem_fraction_static="0.65"
+torch_compile_enabled=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -41,6 +42,10 @@ while [[ $# -gt 0 ]]; do
             mem_fraction_static="$2"
             shift 2
             ;;
+        --enable-torch-compile)
+            torch_compile_enabled="--enable-torch-compile"
+            shift 1
+            ;;
         *)
             echo "Unknown option: $1"
             exit 1
@@ -50,7 +55,7 @@ done
 
 # Check if required parameters are provided
 if [ -z "$port" ] || [ -z "$num_gpus" ]; then
-    echo "Usage: $0 --port <port> --num-gpus <num_gpus> [--model-attr <model_attr>] [--chat-model <chat_model>] [--mem-fraction-static <value>]"
+    echo "Usage: $0 --port <port> --num-gpus <num_gpus> [--model-attr <model_attr>] [--chat-model <chat_model>] [--mem-fraction-static <value>] [--enable-torch-compile]"
     exit 1
 fi
 
@@ -75,6 +80,7 @@ fi
 echo "chat_model=$chat_model"
 echo "host=$host:$port"
 echo "mem_fraction_static=$mem_fraction_static"
+echo "torch_compile_enabled=$torch_compile_enabled"
 
 # Run the Python command with the specified parameters
 python -m fastchat.serve.sglang_worker \
@@ -86,6 +92,5 @@ python -m fastchat.serve.sglang_worker \
     --port $port \
     --host $host \
     --limit-worker-concurrency 8 \
-    --mem-fraction-static $mem_fraction_static
-
-
+    --mem-fraction-static $mem_fraction_static \
+    $torch_compile_enabled
