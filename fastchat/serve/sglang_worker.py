@@ -227,11 +227,9 @@ async def api_generate_stream(request: Request):
 
 @app.post("/worker_generate")
 async def api_generate(request: Request):
-    params = await request.json()
-    await acquire_worker_semaphore()
     queue_len = worker.get_queue_length()
     if queue_len >= int(worker.limit_worker_concurrency/2):    # lcw
-        logger.info(queue_len)
+        logger.info(f"worker busy: {queue_len}")
         output = {
                 "text": "Sorry! We are busy now!",
                 "usage": {
@@ -241,8 +239,10 @@ async def api_generate(request: Request):
                 },
                 "error_code": 0,
             }
-    else:
-        output = await worker.generate_gate(params)
+        return JSONResponse(output)
+    params = await request.json()
+    await acquire_worker_semaphore()
+    output = await worker.generate_gate(params)
     release_worker_semaphore()
     worker.send_heart_beat()  # lcw
     return JSONResponse(output)
