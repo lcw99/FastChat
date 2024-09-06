@@ -27,6 +27,11 @@ def heart_beat_worker(obj):
             logger.info("worker idle. reset semaphore")
             obj.semaphore = asyncio.Semaphore(worker.limit_worker_concurrency)
             
+        if obj.get_queue_length() == 0 and not obj.auto_register:
+            logger.info("now exit worker")
+            import os
+            os._exit(0)
+            
         obj.idle = True
         
         obj.send_heart_beat()
