@@ -23,9 +23,9 @@ def heart_beat_worker(obj):
 
         time.sleep(WORKER_HEART_BEAT_INTERVAL)
 
-        if obj.idle and obj.get_queue_length() > 0:
-            logger.info("worker idle. reset semaphore")
-            obj.semaphore = asyncio.Semaphore(worker.limit_worker_concurrency)
+        # if obj.idle and obj.get_queue_length() > 0:
+        #     logger.info("worker idle. reset semaphore")
+        #     obj.semaphore = asyncio.Semaphore(worker.limit_worker_concurrency)
             
         # if obj.get_queue_length() == 0 and not obj.auto_register:
         #     logger.info("now exit worker")
