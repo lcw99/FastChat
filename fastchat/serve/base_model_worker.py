@@ -159,6 +159,7 @@ class BaseModelWorker:
             waiter_count = (
                 0 if self.semaphore._waiters is None else len(self.semaphore._waiters)
             )
+            logger.info("semaphore value: %d, waiter count: %d", sempahore_value, waiter_count)
             return self.limit_worker_concurrency - sempahore_value + waiter_count
 
     def get_status(self):
