@@ -85,7 +85,7 @@ echo "torch_compile_enabled=$torch_compile_enabled"
 # Run the Python command with the specified parameters
 python -m fastchat.serve.sglang_worker \
     --num-gpus $num_gpus \
-    --model-names llama2-ko-chang-instruct-chat,stargio-saju-chat \
+    --model-names stargio-saju-chat \
     --model-path $chat_model \
     --controller-address $controller_address \
     --worker-address http://$worker_host:$port \
