@@ -65,8 +65,10 @@ class BaseModelWorker:
         self.context_len = None
         self.call_ct = 0
         self.semaphore = None
+        
+        # lcw
         self.auto_register = True
-        self.idle = True    # lcw
+        self.idle = True    
 
         self.heart_beat_thread = None
 
@@ -74,7 +76,7 @@ class BaseModelWorker:
             logger = build_logger("model_worker", f"model_worker_{self.worker_id}.log")
         if worker is None:
             worker = self
-
+        
     def make_conv_template(
         self,
         conv_template: str = None,
