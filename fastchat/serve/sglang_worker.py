@@ -242,8 +242,11 @@ async def api_generate(request: Request):
         return JSONResponse(output)
     params = await request.json()
     await acquire_worker_semaphore()
-    output = await worker.generate_gate(params)
-    release_worker_semaphore()
+    output = {}
+    try:
+        output = await worker.generate_gate(params)
+    finally:
+        release_worker_semaphore()
     worker.send_heart_beat()  # lcw
     return JSONResponse(output)
 
