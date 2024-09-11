@@ -18,6 +18,7 @@ chat_model=""
 controller_address="http://15.164.140.247:21001"
 mem_fraction_static="0.58"
 torch_compile_enabled=""
+model_names="stargio-saju-chat"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -64,6 +65,7 @@ if [ -z "$chat_model" ]; then
     chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)
     if [ -n "$model_attr" ]; then
         chat_model="${chat_model}${model_attr}"
+        model_names="${model_names},${model_names}${model_attr}"
     fi
     chat_model=/home/chang/t9/release-models/$chat_model
 fi
@@ -85,7 +87,7 @@ echo "torch_compile_enabled=$torch_compile_enabled"
 # Run the Python command with the specified parameters
 python -m fastchat.serve.sglang_worker \
     --num-gpus $num_gpus \
-    --model-names stargio-saju-chat \
+    --model-names $model_names \
     --model-path $chat_model \
     --controller-address $controller_address \
     --worker-address http://$worker_host:$port \
