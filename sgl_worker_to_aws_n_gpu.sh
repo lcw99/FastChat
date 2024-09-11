@@ -16,7 +16,7 @@ num_gpus=""
 model_attr=""
 chat_model=""
 controller_address="http://15.164.140.247:21001"
-mem_fraction_static="0.65"
+mem_fraction_static="0.58"
 torch_compile_enabled=""
 
 # Parse command line arguments
