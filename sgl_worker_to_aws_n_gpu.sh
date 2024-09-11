@@ -74,9 +74,9 @@ fi
 host=$(hostname -I | awk '{print $1}')
 worker_host=$host
 
-# If IP starts with "192.168.25", change host to "211.185.80.40"
+# If IP starts with "192.168.25", change host to public ip
 if [[ $worker_host == 192.168.25* ]]; then
-    worker_host="211.185.80.40"
+    worker_host=$(wget -qO- https://ipinfo.io/ip)
 fi
 
 echo "chat_model=$chat_model"
