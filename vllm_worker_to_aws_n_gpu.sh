@@ -29,9 +29,9 @@ fi
 # Get the current IP address of the hostname
 host=$(hostname -I | awk '{print $1}')
 worker_host=$host
-# If IP starts with "192.168.25", change host to "14.54.171.144"
+# If IP starts with "192.168.25", change host to "211.185.80.40"
 if [[ $worker_host == 192.168.25* ]]; then
-    worker_host="14.54.171.144"
+    worker_host="211.185.80.40"
 fi
 
 echo "chat_model=$chat_model"

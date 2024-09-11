@@ -1,8 +1,8 @@
 # to aws from my desktop
-python -m fastchat.serve.model_worker --num-gpus 1 --model-names llama2-ko-chang-instruct-chat --model-path /home/chang/AI/llm/text-generation-webui/models/open-solar-0204-awq --controller-address http://15.164.140.247:21001 --worker-address http://14.54.171.144:$1 --port $1 --host 192.168.25.74 --limit-worker-concurrency 3
+python -m fastchat.serve.model_worker --num-gpus 1 --model-names llama2-ko-chang-instruct-chat --model-path /home/chang/AI/llm/text-generation-webui/models/open-solar-0204-awq --controller-address http://15.164.140.247:21001 --worker-address http://211.185.80.40:$1 --port $1 --host 192.168.25.74 --limit-worker-concurrency 3
 
 # to aws from ubuntu-win
-python -m fastchat.serve.model_worker --num-gpus 1 --model-names llama2-ko-chang-instruct-chat --model-path /home/chang/AI/llm/text-generation-webui/models/open-solar-0204-awq --controller-address http://15.164.140.247:21001 --worker-address http://14.54.171.144:$1 --port $1 --host 192.168.25.98 --limit-worker-concurrency 3
+python -m fastchat.serve.model_worker --num-gpus 1 --model-names llama2-ko-chang-instruct-chat --model-path /home/chang/AI/llm/text-generation-webui/models/open-solar-0204-awq --controller-address http://15.164.140.247:21001 --worker-address http://211.185.80.40:$1 --port $1 --host 192.168.25.98 --limit-worker-concurrency 3
 
 # to aws from stargio
 python -m fastchat.serve.model_worker --num-gpus 1 --model-names llama2-ko-chang-instruct-chat --model-path /home/chang/t9/StockModels/open-solar-0204-awq --controller-address http://15.164.140.247:21001 --worker-address http://1.234.25.98:$1 --port $1 --host 1.234.25.98 --limit-worker-concurrency 2
