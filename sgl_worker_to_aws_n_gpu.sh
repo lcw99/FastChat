@@ -76,7 +76,7 @@ worker_host=$host
 
 # If IP starts with "192.168.25", change host to "14.54.171.144"
 if [[ $worker_host == 192.168.25* ]]; then
-    worker_host="14.54.171.144"
+    worker_host="211.185.80.40"
 fi
 
 echo "chat_model=$chat_model"
