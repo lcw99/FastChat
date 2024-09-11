@@ -211,7 +211,7 @@ class Controller:
             peak = 8
             min_len = min(peak, len(worker_bar))
             worker_bar = worker_bar[:min_len] + "█" * (max(0, len(worker_bar)) - peak)
-            logger.info(f"queue_lens: {worker_avg:2.1f} {worker_sum:2.0f} [{worker_list}]({min_index}) {worker_bar}")
+            logger.info(f"queue_lens: {worker_avg:2.1f} {worker_sum:2.0f} [{worker_list}]({min_index:02d}) {worker_bar}")
             return w_name
         else:
             raise ValueError(f"Invalid dispatch method: {self.dispatch_method}")
