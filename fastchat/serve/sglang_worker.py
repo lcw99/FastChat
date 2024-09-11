@@ -195,7 +195,10 @@ class SGLWorker(BaseModelWorker):
     async def generate_gate(self, params):
         async for x in self.generate_stream_gate(params):
             pass
-        return json.loads(x[:-1].decode())
+        try:
+            return json.loads(x[:-1].decode())
+        except:
+            return {}
 
 
 def release_worker_semaphore():
