@@ -91,6 +91,7 @@ fi
 echo "chat_model=$chat_model"
 echo "host=$host:$port"
 echo "mem_fraction_static=$mem_fraction_static"
+echo "model_names=$model_names"
 echo "torch_compile_enabled=$torch_compile_enabled"
 
 # Run the Python command with the specified parameters
