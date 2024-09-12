@@ -41,6 +41,7 @@ localtools/
 !unregister_worker_2.sh
 !1gpu_sgl.sh
 !2gpu_sgl.sh
+!1gpu_sgl_int8.sh
 # Image data
 serve_images
 val2014
