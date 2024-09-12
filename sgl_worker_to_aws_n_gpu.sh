@@ -19,6 +19,7 @@ controller_address="http://15.164.140.247:21001"
 mem_fraction_static="0.58"
 torch_compile_enabled=""
 model_names="stargio-saju-chat"
+model_names_param=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -37,6 +38,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --chat-model)
             chat_model="$2"
+            shift 2
+            ;;
+        --model-names)
+            model_names_param="$2"
             shift 2
             ;;
         --mem-fraction-static)
@@ -68,6 +73,10 @@ if [ -z "$chat_model" ]; then
         model_names="${model_names}${model_attr}"
     fi
     chat_model=/home/chang/t9/release-models/$chat_model
+fi
+
+if [ -n "$model_names_param" ]; then
+    model_names=$model_names_param
 fi
 
 # Get the current IP address of the hostname
