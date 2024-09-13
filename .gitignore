@@ -37,8 +37,6 @@ localtools/
 !sgl_worker_to.74.sh
 !sgl_worker_to_aws_n_gpu.sh
 !unregister_worker_aws.sh
-!unregister_worker_0.sh
-!unregister_worker_2.sh
 !unregister_worker_all.sh
 !1gpu_sgl.sh
 !2gpu_sgl.sh
