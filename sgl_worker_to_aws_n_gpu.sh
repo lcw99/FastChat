@@ -99,6 +99,7 @@ echo "sgl_port=$sgl_port"
 echo "mem_fraction_static=$mem_fraction_static"
 echo "model_names=$model_names"
 echo "torch_compile_enabled=$torch_compile_enabled"
+echo "worker_host=$worker_host"
 
 # Run the Python command with the specified parameters
 python -m fastchat.serve.sglang_worker \

@@ -1,6 +1,24 @@
-gpu1=$1
+gpu1=0
+port=2101$gpu1
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --gpu)
+            gpu1="$2"
+            shift 2
+            ;;
+        --port)
+            port="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
 CUDA_VISIBLE_DEVICES=$gpu1 bash sgl_worker_to_aws_n_gpu.sh \
-    --port 2101$gpu1 \
+    --port $port \
     --num-gpus 1 \
     --model-attr "-int8" \
     --mem-fraction-static 0.6 \
