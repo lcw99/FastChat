@@ -344,6 +344,7 @@ if __name__ == "__main__":
         tp_size=args.tp_size,
         enable_p2p_check=True,
         enable_torch_compile=args.enable_torch_compile,
+        port=args.port+10000,
     )
     sgl.set_default_backend(runtime)
 
