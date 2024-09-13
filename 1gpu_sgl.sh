@@ -1,5 +1,4 @@
 gpu1=0
-port=2101$gpu1
 while [[ $# -gt 0 ]]; do
     case $1 in
         --gpu)
@@ -16,6 +15,8 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+port=2101$gpu1
 
 CUDA_VISIBLE_DEVICES=$gpu1 bash sgl_worker_to_aws_n_gpu.sh \
     --port $port \
