@@ -16,7 +16,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-port=2101$gpu1
+if [ -z "$port" ]; then
+    port=2101$gpu1
+fi
 
 CUDA_VISIBLE_DEVICES=$gpu1 bash sgl_worker_to_aws_n_gpu.sh \
     --port $port \

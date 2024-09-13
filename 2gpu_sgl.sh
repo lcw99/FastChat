@@ -16,7 +16,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-port=2101$gpu1
+if [ -z "$port" ]; then
+    port=2101$gpu1
+fi
+
 gpu2=$(expr $gpu1 + 1)
 echo "run on $gpu1,$gpu2"
 CUDA_VISIBLE_DEVICES=$gpu1,$gpu2 bash sgl_worker_to_aws_n_gpu.sh \
