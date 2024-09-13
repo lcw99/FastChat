@@ -1,9 +1,9 @@
 host=$(hostname -I | awk '{print $1}')
-bash unregister_worker_aws.sh http://$host:21010
-bash unregister_worker_aws.sh http://$host:21011
-bash unregister_worker_aws.sh http://$host:21012
-bash unregister_worker_aws.sh http://$host:21013
-bash unregister_worker_aws.sh http://$host:21014
-bash unregister_worker_aws.sh http://$host:21015
-bash unregister_worker_aws.sh http://$host:21016
-bash unregister_worker_aws.sh http://$host:21017
+bash unregister_worker_aws.sh --gpu 0
+bash unregister_worker_aws.sh --gpu 1
+bash unregister_worker_aws.sh --gpu 2
+bash unregister_worker_aws.sh --gpu 3
+bash unregister_worker_aws.sh --gpu 4
+bash unregister_worker_aws.sh --gpu 5
+bash unregister_worker_aws.sh --gpu 6
+bash unregister_worker_aws.sh --gpu 7
