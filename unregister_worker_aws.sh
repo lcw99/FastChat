@@ -1,5 +1,4 @@
 gpu1=0
-port=2101$gpu1
 
 host=$(hostname -I | awk '{print $1}')
 worker_host=$host
@@ -26,6 +25,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+port=2101$gpu1
 worker_name="http://$worker_host:$port"
 echo "worker_name=$worker_name"
 python -m fastchat.serve.unregister_worker --controller http://15.164.140.247:21001 \
