@@ -24,5 +24,5 @@ CUDA_VISIBLE_DEVICES=$gpu1 bash sgl_worker_to_aws_n_gpu.sh \
     --model-attr "-int8" \
     --mem-fraction-static 0.6 \
     --model-names "stargio-saju-chat" \
-    --sgl-port 30${gpu1}00
+    --sgl-port 300${gpu1}0
 
