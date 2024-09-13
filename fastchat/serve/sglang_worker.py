@@ -285,6 +285,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="localhost")
     parser.add_argument("--port", type=int, default=21002)
+    parser.add_argument("--sgl-port", type=int, default=30000)
     parser.add_argument("--worker-address", type=str, default="http://localhost:21002")
     parser.add_argument(
         "--controller-address", type=str, default="http://localhost:21001"
@@ -344,7 +345,7 @@ if __name__ == "__main__":
         tp_size=args.tp_size,
         enable_p2p_check=True,
         enable_torch_compile=args.enable_torch_compile,
-        port=args.port+10000,
+        port=args.sgl_port,
     )
     sgl.set_default_backend(runtime)
 

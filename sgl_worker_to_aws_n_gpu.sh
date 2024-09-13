@@ -12,6 +12,7 @@ ctrl_c() {
 
 # Default values
 port=""
+sgl_port="30000"
 num_gpus=""
 model_attr=""
 chat_model=""
@@ -26,6 +27,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --port)
             port="$2"
+            shift 2
+            ;;
+        --sgl-port)
+            sgl_port="$2"
             shift 2
             ;;
         --num-gpus)
@@ -90,6 +95,7 @@ fi
 
 echo "chat_model=$chat_model"
 echo "host=$host:$port"
+echo "sgl_port=$sgl_port"
 echo "mem_fraction_static=$mem_fraction_static"
 echo "model_names=$model_names"
 echo "torch_compile_enabled=$torch_compile_enabled"
@@ -105,4 +111,5 @@ python -m fastchat.serve.sglang_worker \
     --host $host \
     --limit-worker-concurrency 8 \
     --mem-fraction-static $mem_fraction_static \
+    --sgl-port $sgl_port \
     $torch_compile_enabled
