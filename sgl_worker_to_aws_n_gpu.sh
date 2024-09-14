@@ -78,8 +78,8 @@ fi
 if [ -z "$chat_model" ]; then
     chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)
     if [ -n "$model_attr" ]; then
-        chat_model="${chat_model}${model_attr}"
-        model_names="${model_names}${model_attr}"
+        chat_model="${chat_model}/${model_attr}"
+        model_names="${model_names}-${model_attr}"
     fi
     chat_model=/home/chang/t9/release-models/$chat_model
 fi
