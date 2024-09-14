@@ -33,6 +33,10 @@ while [[ $# -gt 0 ]]; do
             sgl_port="$2"
             shift 2
             ;;
+        --controller)
+            controller_address="$2"
+            shift 2
+            ;;
         --num-gpus)
             num_gpus="$2"
             shift 2
@@ -93,6 +97,7 @@ if [[ $worker_host == 192.168.25* ]]; then
     worker_host=$(wget -qO- https://ipinfo.io/ip)
 fi
 
+echo "-------------------------------"
 echo "chat_model=$chat_model"
 echo "host=$host:$port"
 echo "sgl_port=$sgl_port"
@@ -100,6 +105,8 @@ echo "mem_fraction_static=$mem_fraction_static"
 echo "model_names=$model_names"
 echo "torch_compile_enabled=$torch_compile_enabled"
 echo "worker_host=$worker_host"
+echo "controller_address=$controller_address"
+echo "-------------------------------"
 
 # Run the Python command with the specified parameters
 python -m fastchat.serve.sglang_worker \

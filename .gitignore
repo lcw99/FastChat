@@ -34,7 +34,7 @@ localtools/
 *.sh
 !vllm_worker_to_aws_n_gpu.sh
 !killall.sh
-!sgl_worker_to.74.sh
+!sgl_worker_to_74.sh
 !sgl_worker_to_aws_n_gpu.sh
 !unregister_worker_aws.sh
 !unregister_worker_all.sh
