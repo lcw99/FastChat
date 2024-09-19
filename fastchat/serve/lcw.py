@@ -36,7 +36,7 @@ async def get_context_length(request, worker_addr):
 
 
 async def lcw_process(request: ChatCompletionRequest, worker_addr):
-    MAX_NUM_MESSAGES = 12
+    MAX_NUM_MESSAGES = 24
     MAX_CONTEXT_LENGTH = 8000
 
     full_conv = "\n".join([json.dumps(m, ensure_ascii=False) for m in request.messages])
