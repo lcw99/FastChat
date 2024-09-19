@@ -1,4 +1,5 @@
 gpu1=0
+mem_fraction_static="0.6"
 while [[ $# -gt 0 ]]; do
     case $1 in
         --gpu)
@@ -7,6 +8,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --port)
             port="$2"
+            shift 2
+            ;;
+        --mem-fraction-static)
+            mem_fraction_static="$2"
             shift 2
             ;;
         *)
@@ -25,6 +30,6 @@ echo "run on $gpu1,$gpu2"
 CUDA_VISIBLE_DEVICES=$gpu1,$gpu2 bash sgl_worker_to_aws_n_gpu.sh \
     --port $port \
     --num-gpus 2 \
-    --mem-fraction-static 0.6 \
+    --mem-fraction-static $mem_fraction_static \
     --model-names "stargio-saju-chat" \
     --sgl-port 300${gpu1}0
