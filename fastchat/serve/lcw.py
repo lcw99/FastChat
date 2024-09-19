@@ -122,9 +122,9 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
         input_length = await get_token_length(
             request, gen_params["prompt"], worker_addr
         )
-        logger.info(
-            f"{context_length=}, {input_length=}, {max_tokens=}, {len(messages)=}"
-        )
+        # logger.info(
+        #     f"{context_length=}, {input_length=}, {max_tokens=}, {len(messages)=}"
+        # )
         if input_length + max_tokens > context_length:
             if len(messages) == 2:
                 return create_error_response(
@@ -146,7 +146,7 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
     request.messages = messages
     # request.max_tokens = max_tokens
     
-    logger.info(f"after calc {max_tokens=} {input_length=} {context_length=}")
+    logger.info(f"after calc {max_tokens=} {input_length=} {context_length=} {len(messages)=}")
     logger.info(f"{request.temperature=}, {request.top_p=}")
     
     return conv_file_path
