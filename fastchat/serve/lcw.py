@@ -146,7 +146,7 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
     request.messages = messages
     # request.max_tokens = max_tokens
     
-    logger.info(f"after calc {max_tokens=} {input_length=} {context_length=} {len(messages)=}")
+    logger.info(f"** after calc {max_tokens=} {input_length=} {context_length=} {len(messages)=}")
     logger.info(f"{request.temperature=}, {request.top_p=}")
     
     return conv_file_path
