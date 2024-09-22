@@ -1,0 +1,1 @@
+python -m fastchat.serve.openai_api_server --host localhost --port 8888 --controller-address http://15.164.140.247:21001

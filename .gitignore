@@ -31,16 +31,7 @@ tests/state_of_the_union.txt
 build
 
 localtools/
-*.sh
-!vllm_worker_to_aws_n_gpu.sh
-!killall.sh
-!sgl_worker_to_74.sh
-!sgl_worker_to_aws_n_gpu.sh
-!unregister_worker_aws.sh
-!unregister_worker_all.sh
-!1gpu_sgl.sh
-!2gpu_sgl.sh
-!1gpu_sgl_int8.sh
+local-scripts/
 # Image data
 serve_images
 val2014

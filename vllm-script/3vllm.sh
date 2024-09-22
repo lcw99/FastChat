@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=3 bash vllm_worker_to_aws_n_gpu.sh 21013 1 "-awq"

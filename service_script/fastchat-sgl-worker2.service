@@ -1,0 +1,14 @@
+[Unit]
+Description=FastChat sgl-worker for SajuGPT
+After=network.target
+
+[Service]
+Environment="PATH=/sbin:/bin:/usr/sbin:/usr/bin:/home/chang/anaconda3/bin"
+Environment="LOGDIR=log"
+ExecStart=/bin/bash -c -l "/home/chang/llm/FastChat/sgl_worker_service2.sh"
+Restart=always
+User=chang
+Group=chang
+
+[Install]
+WantedBy=multi-user.target

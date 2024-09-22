@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=1 bash model_worker_to_aws.sh 21006
