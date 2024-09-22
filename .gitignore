@@ -31,7 +31,6 @@ tests/state_of_the_union.txt
 build
 
 localtools/
-local-scripts/
 # Image data
 serve_images
 val2014
