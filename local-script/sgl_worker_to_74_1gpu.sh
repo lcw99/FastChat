@@ -1,5 +1,11 @@
 controller_address=http://211.185.80.40:21001
 
+host=$(hostname -I | awk '{print $1}')
+
+if [[ $host == 192.168.25.74 ]]; then
+    controller_address=http://192.168.25.74:21001
+fi
+
 gpu1=0
 chat_model=""
 while [[ $# -gt 0 ]]; do
@@ -24,8 +30,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$chat_model" ]; then
-    echo "Usage: $0 --chat-model chat_model path"
-    exit 1
+    chat_model=$(wget -qO- https://content.plan4.house/sajugpt/chat_model.txt)
+    if [ -n "$model_attr" ]; then
+        chat_model="${chat_model}/${model_attr}"
+        model_names="${model_names}-${model_attr}"
+    fi
+    chat_model=/home/chang/t9/release-models/$chat_model/int8
 fi
 
 if [ -z "$port" ]; then

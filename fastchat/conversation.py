@@ -310,6 +310,8 @@ class Conversation:
             if self.system_message:
                 ret += "<start_of_turn>" + "system" + "\n" + system_prompt + self.sep
             for role, message in self.messages:
+                if type(message) is tuple:
+                    message, images = message
                 if message:
                     ret += "<start_of_turn>" + role + "\n" + message + self.sep
                 else:

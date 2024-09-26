@@ -1,1 +1,1 @@
-python -m fastchat.serve.controller --host 127.0.0.1
+python -m fastchat.serve.controller --host 192.168.25.74
