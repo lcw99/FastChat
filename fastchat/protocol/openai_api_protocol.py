@@ -92,6 +92,7 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: List[ChatCompletionResponseChoice]
     usage: UsageInfo
+    system_fingerprint: str = "stargio openai compatable server"
 
 
 class DeltaMessage(BaseModel):

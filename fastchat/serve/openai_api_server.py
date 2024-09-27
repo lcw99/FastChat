@@ -300,7 +300,7 @@ async def get_gen_params(
         stop_str=conv["stop_str"],
         stop_token_ids=conv["stop_token_ids"],
     )
-
+    is_list_message = False
     if isinstance(messages, str):
         prompt = messages
         images = []
@@ -310,10 +310,12 @@ async def get_gen_params(
             msg_role = message["role"]
             if msg_role == "system":
                 if type(message["content"]) == list:
+                    is_list_message = True;
                     message["content"] = message["content"][0]['text']
                 conv.set_system_message(message["content"])
             elif msg_role == "user":
                 if type(message["content"]) == list:
+                    is_list_message = True;
                     image_list = [
                         item["image_url"]["url"]
                         for item in message["content"]
@@ -374,6 +376,7 @@ async def get_gen_params(
     _add_to_set(conv.stop_str, new_stop)
 
     gen_params["stop"] = list(new_stop)
+    gen_params["is_list_message"] = is_list_message
 
     logger.debug(f"==== request ====\n{gen_params}")
     return gen_params
@@ -626,7 +629,10 @@ async def chat_completion_stream_generator(
             assistant += delta_text
             if len(delta_text) == 0:
                 delta_text = None
-            content_list = [{"type": "text", "text": delta_text}]
+            if gen_params['is_list_message']:
+                content_list = [{"type": "text", "text": delta_text}]
+            else:
+                content_list = delta_text
             choice_data = ChatCompletionResponseStreamChoice(
                 index=i,
                 delta=DeltaMessage(content=content_list),
