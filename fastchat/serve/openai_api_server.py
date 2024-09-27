@@ -520,8 +520,6 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     # lcw
     # logger.info(gen_params["prompt"])
-    if request.stream:
-        logger.info(f"Q: {extract_last_user_message(gen_params['prompt']).strip()}")
     logger.info(f"max_new_tokens={gen_params['max_new_tokens']}")
     
     if request.stream:
@@ -654,9 +652,8 @@ async def chat_completion_stream_generator(
         yield f"data: {finish_chunk.model_dump_json(exclude_none=True)}\n\n"
 
     # lcw
-    prompt = gen_params["prompt"]
-    # q = prompt.splitlines()[-2]
-    # logger.info(colored(f"\n{prompt}", on_color="on_green"))
+    from fastchat.serve.lcw import lcw_process, extract_last_user_message
+    logger.info(f"Q: {extract_last_user_message(gen_params['prompt']).strip()}")
     logger.info(f"A: {assistant.strip()}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
