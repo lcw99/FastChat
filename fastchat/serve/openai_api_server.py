@@ -520,7 +520,8 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     # lcw
     # logger.info(gen_params["prompt"])
-    logger.info(f"Q: {extract_last_user_message(gen_params['prompt']).strip()}")
+    if request.stream:
+        logger.info(f"Q: {extract_last_user_message(gen_params['prompt']).strip()}")
     logger.info(f"max_new_tokens={gen_params['max_new_tokens']}")
     
     if request.stream:
@@ -656,7 +657,7 @@ async def chat_completion_stream_generator(
     prompt = gen_params["prompt"]
     # q = prompt.splitlines()[-2]
     # logger.info(colored(f"\n{prompt}", on_color="on_green"))
-    # logger.info(f"{assistant.strip()}")
+    logger.info(f"A: {assistant.strip()}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
         with open(conv_file_path, "a") as f:
