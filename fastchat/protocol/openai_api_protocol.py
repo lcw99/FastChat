@@ -96,7 +96,8 @@ class ChatCompletionResponse(BaseModel):
 
 class DeltaMessage(BaseModel):
     role: Optional[str] = None
-    content: Optional[str] = None
+    # content: Optional[str] = None
+    content: Optional[Union[str, List[Any]]] = None
 
 
 class ChatCompletionResponseStreamChoice(BaseModel):

@@ -312,6 +312,8 @@ class Conversation:
             for role, message in self.messages:
                 if type(message) is tuple:
                     message, images = message
+                if type(message) is list:
+                    message = message[0]['text']
                 if message:
                     ret += "<start_of_turn>" + role + "\n" + message + self.sep
                 else:

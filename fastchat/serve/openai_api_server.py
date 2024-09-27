@@ -309,6 +309,8 @@ async def get_gen_params(
         for message in messages:
             msg_role = message["role"]
             if msg_role == "system":
+                if type(message["content"]) == list:
+                    message["content"] = message["content"][0]['text']
                 conv.set_system_message(message["content"])
             elif msg_role == "user":
                 if type(message["content"]) == list:
@@ -595,7 +597,9 @@ async def chat_completion_stream_generator(
         chunk = ChatCompletionStreamResponse(
             id=id, choices=[choice_data], model=model_name
         )
-        yield f"data: {chunk.model_dump_json(exclude_unset=True)}\n\n"
+        data = f"data: {chunk.model_dump_json(exclude_unset=False)}\n\n"
+        # logger.info(data)
+        yield data
 
         previous_text = ""
         async for content in generate_completion_stream(
@@ -622,9 +626,10 @@ async def chat_completion_stream_generator(
             assistant += delta_text
             if len(delta_text) == 0:
                 delta_text = None
+            content_list = [{"type": "text", "text": delta_text}]
             choice_data = ChatCompletionResponseStreamChoice(
                 index=i,
-                delta=DeltaMessage(content=delta_text),
+                delta=DeltaMessage(content=content_list),
                 finish_reason=content.get("finish_reason", None),
             )
             chunk = ChatCompletionStreamResponse(

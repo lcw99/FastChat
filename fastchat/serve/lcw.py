@@ -79,6 +79,8 @@ async def lcw_process(request: ChatCompletionRequest, worker_addr):
 
     # compact assistant message
     for idx in range(len(messages[:-2])):
+        if type(messages[idx]["content"]) is list:
+            messages[idx]["content"] = messages[idx]["content"][0]['text']    
         messages[idx]["content"] = messages[idx]["content"].strip()
         m = messages[idx]
         content = m["content"].strip()
