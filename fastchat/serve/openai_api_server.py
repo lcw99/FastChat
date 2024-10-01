@@ -654,7 +654,8 @@ async def chat_completion_stream_generator(
     # lcw
     from fastchat.serve.lcw import lcw_process, extract_last_user_message
     logger.info(f"Q: {extract_last_user_message(gen_params['prompt']).strip()}")
-    logger.info(f"A: {assistant.strip()}")
+    answer = assistant.strip().replace('\n', '/ ')
+    logger.info(f"A: {answer}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
         with open(conv_file_path, "a") as f:
