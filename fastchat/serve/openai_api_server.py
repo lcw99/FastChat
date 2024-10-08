@@ -301,6 +301,7 @@ async def get_gen_params(
         stop_token_ids=conv["stop_token_ids"],
     )
     is_list_message = False
+    last_user_message = ""
     if isinstance(messages, str):
         prompt = messages
         images = []
@@ -330,9 +331,13 @@ async def get_gen_params(
                     # TODO(chris): This only applies to LLaVA model. Implement an image_token string in the conv template.
                     text = "<image>\n" * len(image_list)
                     text += "\n".join(text_list)
+                    last_user_message = text
                     conv.append_message(conv.roles[0], (text, image_list))
                 else:
-                    conv.append_message(conv.roles[0], message["content"])
+                    last_user_message = message["content"]
+                    conv.append_message(conv.roles[0], last_user_message)
+                if "name" in message:
+                    last_user_message = f"{last_user_message}({message['name']})" 
             elif msg_role == "assistant":
                 conv.append_message(conv.roles[1], message["content"])
             else:
@@ -377,6 +382,7 @@ async def get_gen_params(
 
     gen_params["stop"] = list(new_stop)
     gen_params["is_list_message"] = is_list_message
+    gen_params["last_user_message"] = last_user_message
 
     logger.debug(f"==== request ====\n{gen_params}")
     return gen_params
@@ -486,7 +492,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
                     request.messages.insert(1, {"role": mm[0], "content": mm[1]})
 
     # call lcw converation log
-    from fastchat.serve.lcw import lcw_process, extract_last_user_message
+    from fastchat.serve.lcw import lcw_process
     conv_file_path = await lcw_process(request, worker_addr)
     
     gen_params = await get_gen_params(
@@ -652,9 +658,8 @@ async def chat_completion_stream_generator(
         yield f"data: {finish_chunk.model_dump_json(exclude_none=True)}\n\n"
 
     # lcw
-    from fastchat.serve.lcw import lcw_process, extract_last_user_message
-    logger.info(f"Q: {extract_last_user_message(gen_params['prompt']).strip()}")
     answer = assistant.strip().replace('\n', '/ ')
+    logger.info(f"Q: {gen_params['last_user_message'].strip()}")
     logger.info(f"A: {answer}")
     if conv_file_path:
         data = {"role": "assistant", "content": assistant}
